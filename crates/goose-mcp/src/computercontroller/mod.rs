@@ -1,7 +1,6 @@
 #[cfg(not(windows))]
 use crate::subprocess::merged_path;
 use crate::subprocess::SubprocessExt;
-#[cfg(target_os = "macos")]
 use base64::Engine;
 use etcetera::{choose_app_strategy, AppStrategy};
 use indoc::{formatdoc, indoc};
@@ -30,12 +29,18 @@ use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
+mod browser_scrape;
 mod docx_tool;
 mod pdf_tool;
 mod xlsx_tool;
 
 mod platform;
 use platform::{create_system_automation, SystemAutomation};
+
+pub use browser_scrape::{
+    check_and_scrape, extract_markets, is_valid_png, navigate_and_extract, BrowserScrapeError,
+    MarketEntry, PageContent, ScrapeOptions, ScrapeResult, PNG_SIGNATURE,
+};
 
 /// Enum for save_as parameter in web_scrape tool
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, Default)]
@@ -58,6 +63,29 @@ pub struct WebScrapeParams {
     /// Format of the response.
     #[serde(default)]
     pub save_as: SaveAsFormat,
+}
+
+/// Parameters for the browser_scrape tool (real browser, JS-capable)
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct BrowserScrapeParams {
+    /// The URL to open in a controlled browser and scrape
+    pub url: String,
+    /// Extra milliseconds to wait after the page is ready for client-side rendering (default 2000)
+    #[serde(default)]
+    pub settle_ms: Option<u64>,
+    /// Optional CSS selector that must appear before extraction (useful for SPAs)
+    #[serde(default)]
+    pub ready_selector: Option<String>,
+    /// Navigation/ready timeout in seconds (default 45)
+    #[serde(default)]
+    pub timeout_secs: Option<u64>,
+    /// When true, also write the structured JSON result to the cache directory
+    #[serde(default)]
+    pub save_output: bool,
+    /// When true, capture a viewport PNG of the rendered page and return it as image content
+    /// (also written to the cache as PNG). Default false — scrape stays cheap without this.
+    #[serde(default)]
+    pub capture_screenshot: bool,
 }
 
 /// Enum for language parameter in automation_script tool
@@ -522,6 +550,13 @@ impl ComputerControllerServer {
               - Save as text, JSON, or binary files
               - Content is cached locally for later use
               - This is not optimised for complex websites, so don't use this as the first tool.
+            browser_scrape
+              - Control a real headless Chrome browser (not plain HTTP)
+              - Navigate to a URL, wait for client-rendered content, extract structured data
+              - Best for JS SPAs and prediction-market sites like Polymarket
+              - Returns JSON with markets (title/question, prices/odds, status when present)
+              - Optional save_output writes the JSON to the cache directory
+              - Optional capture_screenshot returns a viewport PNG (image content + cache file)
             cache
               - Manage your cached files
               - List, view, delete files
@@ -599,6 +634,80 @@ impl ComputerControllerServer {
         Ok(())
     }
 
+    /// Control a real browser: navigate, wait for client-rendered content, extract market-like data.
+    #[tool(
+        name = "browser_scrape",
+        description = "
+            Open a real headless Chrome browser, navigate to a URL, wait until
+            client-rendered content is available, and scrape structured data.
+            Designed for JS-heavy sites (e.g. Polymarket prediction markets).
+            Returns JSON with: url, title, markets[{title, prices, status?, outcomes?}].
+            Set capture_screenshot=true to also return a viewport PNG of the rendered page
+            (as image content and a cached .png file). Prefer this over web_scrape for SPAs.
+            Does not log in or trade.
+        "
+    )]
+    pub async fn browser_scrape(
+        &self,
+        params: Parameters<BrowserScrapeParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params = params.0;
+        let options = browser_scrape::ScrapeOptions {
+            settle_ms: params.settle_ms.unwrap_or(2_000),
+            ready_selector: params.ready_selector,
+            navigation_timeout: std::time::Duration::from_secs(params.timeout_secs.unwrap_or(45)),
+            chrome_path: None,
+            no_sandbox: true,
+            capture_screenshot: params.capture_screenshot,
+        };
+
+        let result = browser_scrape::check_and_scrape(&params.url, options)
+            .await
+            .map_err(|e| {
+                ErrorData::new(
+                    ErrorCode::INTERNAL_ERROR,
+                    format!("browser_scrape failed: {}", e),
+                    None,
+                )
+            })?;
+
+        let screenshot_png = result.screenshot_png.clone();
+
+        let json = serde_json::to_string_pretty(&result).map_err(|e| {
+            ErrorData::new(
+                ErrorCode::INTERNAL_ERROR,
+                format!("Failed to serialize scrape result: {}", e),
+                None,
+            )
+        })?;
+
+        let mut messages = vec![Content::text(json.clone())];
+
+        if params.save_output {
+            let cache_path = self
+                .save_to_cache(json.as_bytes(), "browser_scrape", "json")
+                .await?;
+            self.register_as_resource(&cache_path, "application/json")?;
+            messages.push(Content::text(format!(
+                "Content saved to: {}",
+                cache_path.display()
+            )));
+        }
+
+        if let Some(png) = screenshot_png {
+            let cache_path = self.save_to_cache(&png, "browser_scrape", "png").await?;
+            self.register_as_resource(&cache_path, "image/png")?;
+            let data = base64::prelude::BASE64_STANDARD.encode(&png);
+            messages.push(Content::image(data, "image/png").with_priority(0.0));
+            messages.push(Content::text(format!(
+                "Screenshot saved to: {}",
+                cache_path.display()
+            )));
+        }
+
+        Ok(CallToolResult::success(messages))
+    }
+
     /// Fetch and save content from a web page
     #[tool(
         name = "web_scrape",
@@ -608,6 +717,7 @@ impl ComputerControllerServer {
             - json (for API responses)
             - binary (for images and other files)
             Returns 'Content saved to: <path>'. Use cache to read the content.
+            Not suitable for JS-heavy SPAs — use browser_scrape for those.
         "
     )]
     pub async fn web_scrape(
