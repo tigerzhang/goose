@@ -344,6 +344,14 @@ mod tests {
             map_to_canonical_model("opencode_go", "kimi-k2.6", r),
             Some("opencode-go/kimi-k2.6".to_string())
         );
+        assert_eq!(
+            map_to_canonical_model("opencode", "big-pickle", r),
+            Some("opencode/big-pickle".to_string())
+        );
+        assert_eq!(
+            map_to_canonical_model("opencode", "claude-sonnet-4-5", r),
+            Some("opencode/claude-sonnet-4.5".to_string())
+        );
 
         // === OpenRouter ===
         assert_eq!(

@@ -35,6 +35,7 @@ pub(crate) mod declarative_providers {
         nvidia,
         ollama_cloud,
         omlx,
+        opencode,
         opencode_go,
         orcarouter,
         ovhcloud,
@@ -364,6 +365,42 @@ mod tests {
             deserialize_provider_config(crate::groq::JSON).expect("groq.json should parse");
 
         assert!(!config.preserves_thinking);
+    }
+
+    struct FakeKeyResolver;
+
+    impl KeyResolver for FakeKeyResolver {
+        type Error = std::env::VarError;
+
+        fn resolve_key(&self, _key: &str) -> std::result::Result<String, Self::Error> {
+            Ok("test-opencode-key".to_string())
+        }
+    }
+
+    #[test]
+    fn opencode_zen_bundled_definition_and_construction() {
+        let config =
+            deserialize_provider_config(crate::opencode::JSON).expect("opencode.json should parse");
+
+        assert_eq!(config.id(), "opencode");
+        assert_eq!(config.display_name(), "OpenCode Zen");
+        assert_eq!(config.api_key_env, "OPENCODE_API_KEY");
+        assert_eq!(config.base_url, "https://opencode.ai/zen/v1");
+        assert_eq!(config.catalog_provider_id.as_deref(), Some("opencode"));
+        assert_eq!(config.dynamic_models, Some(true));
+        assert!(config.preserves_thinking);
+        assert!(!config.models.is_empty());
+        assert!(config.models.iter().any(|m| m.name == "big-pickle"));
+        assert!(config.models.iter().any(|m| m.name == "claude-sonnet-4-5"));
+
+        let go = deserialize_provider_config(crate::opencode_go::JSON)
+            .expect("opencode_go.json should parse");
+        assert_eq!(go.id(), "opencode_go");
+        assert_ne!(go.id(), config.id());
+
+        let provider = from_json(crate::opencode::JSON, None, FakeKeyResolver)
+            .expect("OpenCode Zen provider should construct with a key resolver");
+        assert_eq!(provider.get_name(), "opencode");
     }
 
     fn placeholder_var_names(template: &str) -> Vec<String> {
