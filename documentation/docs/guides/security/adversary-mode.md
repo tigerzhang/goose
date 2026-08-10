@@ -81,6 +81,7 @@ Some tool names you might want to add:
 | `computercontroller__automation_script` | Runs shell, Ruby, AppleScript, or PowerShell scripts (default) |
 | `computercontroller__computer_control` | UI automation — clicks, keystrokes, typing |
 | `computercontroller__web_scrape` | Fetches arbitrary URLs |
+| `computercontroller__browser_scrape` | Opens a real headless browser, scrapes JS pages (optional screenshot) |
 
 ## See Also
 

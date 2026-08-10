@@ -3,6 +3,35 @@
 //! Unlike HTTP-only [`super::ComputerControllerServer::web_scrape`], this path
 //! launches a real Chrome session, navigates, waits for client-rendered content,
 //! then extracts structured market-like fields.
+//!
+//! # Goose / MCP
+//!
+//! Exposed as the **`browser_scrape`** tool on the Computer Controller extension.
+//! Enable with `goose session --with-builtin computercontroller`, then ask the
+//! agent to scrape a URL (optionally with `capture_screenshot` for a viewport PNG).
+//!
+//! End-user docs: `documentation/docs/mcp/computer-controller-mcp.md`
+//! (section **Browser scrape**).
+//!
+//! # Library entry points
+//!
+//! - [`check_and_scrape`] — full navigate + wait + extract (retries on transient errors)
+//! - [`navigate_and_extract`] — single browser session → [`PageContent`]
+//! - [`extract_markets`] — pure offline parse of [`PageContent`] → [`ScrapeResult`]
+//!
+//! # Standalone example
+//!
+//! ```text
+//! cargo run -p goose-mcp --example browser_scrape -- \
+//!   --screenshot out.png https://example.com
+//! ```
+//!
+//! # Options
+//!
+//! See [`ScrapeOptions`]: `settle_ms`, `ready_selector`, `navigation_timeout`,
+//! `capture_screenshot` (default off), `no_sandbox`, optional `chrome_path`.
+//! When `capture_screenshot` is true, [`ScrapeResult::screenshot_png`] holds PNG bytes
+//! (validated with [`is_valid_png`]).
 
 mod browser;
 mod parse;
