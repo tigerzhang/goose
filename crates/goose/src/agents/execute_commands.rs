@@ -4,6 +4,10 @@ use anyhow::{anyhow, Result};
 
 use crate::context_mgmt::compact_messages;
 use crate::conversation::message::Message;
+use crate::session::{
+    format_resume_session_list, list_resume_sessions, parse_resume_target, resolve_resume_session,
+    ResumedSession,
+};
 use crate::slash_commands::{recipe_slash_command, skill_slash_command};
 
 use super::Agent;
@@ -14,6 +18,17 @@ pub const COMPACT_TRIGGERS: &[&str] =
 pub struct CommandDef {
     pub name: &'static str,
     pub description: &'static str,
+}
+
+/// Outcome of dispatching a slash command via [`Agent::execute_command`].
+#[derive(Debug)]
+pub enum CommandOutcome {
+    /// Input was not a handled slash command; continue as a normal user message.
+    NotACommand,
+    /// Command handled; show this assistant message and stop the turn.
+    Message(Message),
+    /// Switch the interactive session to another stored session.
+    Resume(ResumedSession),
 }
 
 static COMMANDS: &[CommandDef] = &[
@@ -53,6 +68,11 @@ static COMMANDS: &[CommandDef] = &[
     CommandDef {
         name: "status",
         description: "Show session status: model, provider, mode, and token usage",
+    },
+    CommandDef {
+        name: "resume",
+        description:
+            "Pick a saved session from a tip menu, or resume by name/id: /resume [name-or-id]",
     },
 ];
 
@@ -109,9 +129,9 @@ impl Agent {
         &self,
         message_text: &str,
         session_id: &str,
-    ) -> Result<Option<Message>> {
+    ) -> Result<CommandOutcome> {
         let Some(parsed) = parse_slash_command(message_text) else {
-            return Ok(None);
+            return Ok(CommandOutcome::NotACommand);
         };
 
         let command = parsed.command;
@@ -123,16 +143,24 @@ impl Agent {
             params_str.split_whitespace().collect()
         };
 
+        let message_outcome = |result: Result<Option<Message>>| -> Result<CommandOutcome> {
+            match result? {
+                Some(message) => Ok(CommandOutcome::Message(message)),
+                None => Ok(CommandOutcome::NotACommand),
+            }
+        };
+
         match command {
-            "prompts" => self.handle_prompts_command(&params, session_id).await,
-            "prompt" => self.handle_prompt_command(&params, session_id).await,
-            "compact" => self.handle_compact_command(session_id).await,
-            "clear" => self.handle_clear_command(session_id).await,
-            "skills" => self.handle_skills_command(session_id).await,
-            "doctor" => Ok(Some(crate::doctor::run(self, session_id).await?)),
-            "status" => self.handle_status_command(session_id).await,
-            "goal" => self.handle_goal_command(params_str).await,
-            "grind" => self.handle_grind_command(params_str).await,
+            "prompts" => message_outcome(self.handle_prompts_command(&params, session_id).await),
+            "prompt" => message_outcome(self.handle_prompt_command(&params, session_id).await),
+            "compact" => message_outcome(self.handle_compact_command(session_id).await),
+            "clear" => message_outcome(self.handle_clear_command(session_id).await),
+            "skills" => message_outcome(self.handle_skills_command(session_id).await),
+            "doctor" => message_outcome(Ok(Some(crate::doctor::run(self, session_id).await?))),
+            "status" => message_outcome(self.handle_status_command(session_id).await),
+            "goal" => message_outcome(self.handle_goal_command(params_str).await),
+            "grind" => message_outcome(self.handle_grind_command(params_str).await),
+            "resume" => self.handle_resume_command(params_str, session_id).await,
             _ => {
                 if let Some(message) = self
                     .handle_recipe_command(command, params_str, session_id)
@@ -140,11 +168,41 @@ impl Agent {
                 {
                     #[cfg(feature = "telemetry")]
                     crate::posthog::emit_custom_slash_command_used();
-                    return Ok(Some(message));
+                    return Ok(CommandOutcome::Message(message));
                 }
 
-                self.handle_skill_command(command, params_str, session_id)
-                    .await
+                message_outcome(
+                    self.handle_skill_command(command, params_str, session_id)
+                        .await,
+                )
+            }
+        }
+    }
+
+    async fn handle_resume_command(
+        &self,
+        params_str: &str,
+        current_session_id: &str,
+    ) -> Result<CommandOutcome> {
+        let target = parse_resume_target(params_str);
+        match target {
+            None => {
+                let entries = list_resume_sessions(
+                    self.config.session_manager.as_ref(),
+                    Some(current_session_id),
+                )
+                .await?;
+                let text = format_resume_session_list(&entries, Some(current_session_id));
+                Ok(CommandOutcome::Message(user_only_assistant_text(text)))
+            }
+            Some(target) => {
+                let resumed = resolve_resume_session(
+                    self.config.session_manager.as_ref(),
+                    target,
+                    Some(current_session_id),
+                )
+                .await?;
+                Ok(CommandOutcome::Resume(resumed))
             }
         }
     }
@@ -514,7 +572,130 @@ fn user_only_assistant_text(text: impl Into<String>) -> Message {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agents::{Agent, AgentConfig, GoosePlatform};
+    use crate::config::{GooseMode, PermissionManager};
     use crate::conversation::message::MessageContent;
+    use crate::session::session_manager::{SessionManager, SessionType};
+    use std::path::PathBuf;
+    use std::sync::Arc;
+    use tempfile::TempDir;
+
+    async fn test_agent_with_sessions(
+        messages_by_name: &[(&str, &[&str])],
+    ) -> (TempDir, Agent, Vec<String>) {
+        let temp = TempDir::new().unwrap();
+        let data_path = temp.path().to_path_buf();
+        let session_manager = Arc::new(SessionManager::new(data_path.clone()));
+        let agent = Agent::with_config(AgentConfig::new(
+            Arc::clone(&session_manager),
+            Arc::new(PermissionManager::new(data_path)),
+            None,
+            GooseMode::default(),
+            false,
+            GoosePlatform::GooseCli,
+        ));
+
+        let mut ids = Vec::new();
+        for (name, messages) in messages_by_name {
+            let session = session_manager
+                .create_session(
+                    PathBuf::from("/tmp/resume-cmd-test"),
+                    (*name).to_string(),
+                    SessionType::User,
+                    GooseMode::default(),
+                )
+                .await
+                .unwrap();
+            for text in *messages {
+                session_manager
+                    .add_message(&session.id, &Message::user().with_text(*text))
+                    .await
+                    .unwrap();
+            }
+            ids.push(session.id);
+            tokio::time::sleep(std::time::Duration::from_millis(15)).await;
+        }
+        (temp, agent, ids)
+    }
+
+    #[tokio::test]
+    async fn execute_command_resume_lists_or_resumes_by_name_and_id() {
+        let (_temp, agent, ids) = test_agent_with_sessions(&[
+            ("prior-session", &["history-prior"]),
+            ("current-session", &["history-current"]),
+        ])
+        .await;
+        let prior_id = &ids[0];
+        let current_id = &ids[1];
+
+        // Bare /resume (non-interactive) → list non-empty, non-current sessions
+        let outcome = agent.execute_command("/resume", current_id).await.unwrap();
+        match outcome {
+            CommandOutcome::Message(msg) => {
+                let text = msg.as_concat_text();
+                assert!(
+                    text.contains("Saved sessions") || text.contains("with messages"),
+                    "got: {text}"
+                );
+                assert!(text.contains(prior_id), "list should include prior id");
+                assert!(text.contains("prior-session"));
+            }
+            other => panic!("expected Message listing sessions, got {other:?}"),
+        }
+
+        // By name
+        let outcome = agent
+            .execute_command("/resume prior-session", current_id)
+            .await
+            .unwrap();
+        match outcome {
+            CommandOutcome::Resume(resumed) => {
+                assert_eq!(resumed.session_id, *prior_id);
+                assert_eq!(resumed.name, "prior-session");
+                assert!(resumed
+                    .conversation
+                    .messages()
+                    .iter()
+                    .any(|m| m.as_concat_text().contains("history-prior")));
+            }
+            other => panic!("expected Resume by name, got {other:?}"),
+        }
+
+        // By id
+        let outcome = agent
+            .execute_command(&format!("/resume {prior_id}"), current_id)
+            .await
+            .unwrap();
+        match outcome {
+            CommandOutcome::Resume(resumed) => {
+                assert_eq!(resumed.session_id, *prior_id);
+            }
+            other => panic!("expected Resume by id, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn execute_command_resume_missing_target_errors_without_changing_current() {
+        let (_temp, agent, ids) =
+            test_agent_with_sessions(&[("only", &["keep-this-message"])]).await;
+        let current_id = &ids[0];
+        let sm = agent.config.session_manager.clone();
+        let before = sm.get_session(current_id, true).await.unwrap();
+
+        let err = agent
+            .execute_command("/resume missing-session-xyz", current_id)
+            .await
+            .expect_err("missing target must fail");
+        assert!(
+            err.to_string().contains("missing-session-xyz")
+                || err.to_string().to_lowercase().contains("no session"),
+            "unexpected error: {err}"
+        );
+
+        let after = sm.get_session(current_id, true).await.unwrap();
+        assert_eq!(after.id, before.id);
+        assert_eq!(after.message_count, before.message_count);
+    }
 
     #[test]
     fn parse_slash_command_splits_on_literal_space() {
@@ -571,5 +752,14 @@ mod tests {
         assert!(list_commands()
             .iter()
             .any(|command| command.name == "status"));
+    }
+
+    #[test]
+    fn resume_is_registered_as_a_builtin_command() {
+        let resume = list_commands()
+            .iter()
+            .find(|command| command.name == "resume")
+            .expect("resume must be listed");
+        assert!(!resume.description.is_empty());
     }
 }

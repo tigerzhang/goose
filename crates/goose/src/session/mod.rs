@@ -6,6 +6,7 @@ mod last_message_snippet;
 mod legacy;
 #[cfg(feature = "nostr")]
 pub mod nostr_share;
+pub mod resume;
 pub mod session_manager;
 mod session_naming;
 
@@ -16,6 +17,11 @@ pub use diagnostics::{
     DiagnosticsScheduledRecipe, DiagnosticsTextFile, SystemInfo,
 };
 pub use extension_data::{EnabledExtensionsState, ExtensionData, ExtensionState, TodoState};
+pub use resume::{
+    format_resume_session_label, format_resume_session_list, list_resume_sessions,
+    parse_resume_target, resolve_resume_session, selectable_resume_sessions,
+    ResumeSessionListEntry, ResumedSession,
+};
 pub use session_manager::{
     Session, SessionInsights, SessionManager, SessionNameUpdate, SessionType, SessionUpdateBuilder,
 };

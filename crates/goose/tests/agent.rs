@@ -621,6 +621,7 @@ mod tests {
                     Ok(AgentEvent::HistoryReplaced(_updated_conversation)) => {
                         // We should update the conversation here, but we're not reading it
                     }
+                    Ok(AgentEvent::SessionResumed { .. }) => {}
                     Err(e) => {
                         return Err(e);
                     }
@@ -2356,31 +2357,38 @@ mod tests {
                 )
                 .await?;
 
+            use goose::agents::execute_commands::CommandOutcome;
+
+            fn message_text(outcome: CommandOutcome) -> String {
+                match outcome {
+                    CommandOutcome::Message(msg) => msg.as_concat_text(),
+                    other => panic!("expected CommandOutcome::Message, got {other:?}"),
+                }
+            }
+
             // No goal initially
-            let result = agent.execute_command("/goal", &session.id).await?.unwrap();
-            assert!(result.as_concat_text().contains("No goal set"));
+            let result = message_text(agent.execute_command("/goal", &session.id).await?);
+            assert!(result.contains("No goal set"));
 
             // Set a goal
-            let result = agent
-                .execute_command("/goal make all tests pass", &session.id)
-                .await?
-                .unwrap();
-            assert!(result.as_concat_text().contains("Goal set"));
+            let result = message_text(
+                agent
+                    .execute_command("/goal make all tests pass", &session.id)
+                    .await?,
+            );
+            assert!(result.contains("Goal set"));
             assert_eq!(
                 agent.get_goal().await,
                 Some("make all tests pass".to_string())
             );
 
             // Query it
-            let result = agent.execute_command("/goal", &session.id).await?.unwrap();
-            assert!(result.as_concat_text().contains("make all tests pass"));
+            let result = message_text(agent.execute_command("/goal", &session.id).await?);
+            assert!(result.contains("make all tests pass"));
 
             // Clear it
-            let result = agent
-                .execute_command("/goal off", &session.id)
-                .await?
-                .unwrap();
-            assert!(result.as_concat_text().contains("cleared"));
+            let result = message_text(agent.execute_command("/goal off", &session.id).await?);
+            assert!(result.contains("cleared"));
             assert_eq!(agent.get_goal().await, None);
 
             Ok(())

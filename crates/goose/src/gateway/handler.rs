@@ -493,6 +493,12 @@ impl GatewayHandler {
                         "gateway stream: history replaced #{event_count}"
                     );
                 }
+                Ok(AgentEvent::SessionResumed { .. }) => {
+                    tracing::debug!(
+                        session_id,
+                        "gateway stream: session resumed #{event_count} (ignored)"
+                    );
+                }
                 Err(e) => {
                     tracing::error!(session_id, error = %e, "gateway stream: error at event #{event_count}");
                     // Stop typing indicator before sending error.

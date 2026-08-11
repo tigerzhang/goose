@@ -24,7 +24,7 @@ pub mod validate_extensions;
 
 pub use agent::{Agent, AgentConfig, AgentEvent, ExtensionLoadResult, GoosePlatform};
 pub use container::Container;
-pub use execute_commands::COMPACT_TRIGGERS;
+pub use execute_commands::{CommandOutcome, COMPACT_TRIGGERS};
 pub use extension::{ExtensionConfig, ExtensionError};
 pub use extension_manager::ExtensionManager;
 pub use prompt_manager::PromptManager;

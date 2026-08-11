@@ -151,6 +151,76 @@ impl GooseCompleter {
         Ok((line.len(), vec![]))
     }
 
+    /// Complete saved session names/ids for the `/resume` command.
+    ///
+    /// Offers sessions with messages (excluding the current session when known).
+    /// Matches the typed prefix against session name or id; replacement prefers
+    /// a unique non-empty name, otherwise the session id.
+    fn complete_resume_sessions(&self, line: &str) -> Result<(usize, Vec<Pair>)> {
+        const CMD: &str = "/resume";
+        if !line.starts_with(CMD) {
+            return Ok((line.len(), vec![]));
+        }
+
+        // Only complete the first argument after `/resume`.
+        let rest = line.get(CMD.len()..).unwrap_or("");
+        if !rest.is_empty() && !rest.starts_with(' ') {
+            // e.g. "/resumex" — not our command
+            return Ok((line.len(), vec![]));
+        }
+
+        let partial = rest.trim_start();
+        // Do not complete past a second token.
+        if partial.contains(char::is_whitespace) {
+            return Ok((line.len(), vec![]));
+        }
+
+        let pos = line.len() - partial.len();
+        let partial_lower = partial.to_lowercase();
+
+        let cache = self.completion_cache.read().unwrap();
+        let mut candidates: Vec<Pair> = cache
+            .resume_sessions
+            .iter()
+            .filter(|entry| !entry.is_current && entry.message_count > 0)
+            .filter(|entry| {
+                entry.name.to_lowercase().starts_with(&partial_lower)
+                    || entry.session_id.to_lowercase().starts_with(&partial_lower)
+            })
+            .map(|entry| {
+                let name = if entry.name.is_empty() {
+                    "(unnamed)"
+                } else {
+                    entry.name.as_str()
+                };
+                let msgs = if entry.message_count == 1 {
+                    "1 msg".to_string()
+                } else {
+                    format!("{} msgs", entry.message_count)
+                };
+                // Prefer completing to name when the user is typing a name match;
+                // otherwise use the stable session id.
+                let replacement = if !entry.name.is_empty()
+                    && entry.name.to_lowercase().starts_with(&partial_lower)
+                {
+                    format!("{} ", entry.name)
+                } else {
+                    format!("{} ", entry.session_id)
+                };
+                Pair {
+                    display: format!("{name}  ({msgs})  [{}]", entry.session_id),
+                    replacement,
+                }
+            })
+            .collect();
+
+        // Stable order: by display text
+        candidates.sort_by(|a, b| a.display.cmp(&b.display));
+        candidates.dedup_by(|a, b| a.replacement == b.replacement);
+
+        Ok((pos, candidates))
+    }
+
     /// Complete slash commands
     fn complete_slash_commands(&self, line: &str) -> Result<(usize, Vec<Pair>)> {
         let mut commands = vec![
@@ -417,6 +487,10 @@ impl Completer for GooseCompleter {
                 return self.complete_skill_names(line);
             }
 
+            if line.starts_with("/resume") {
+                return self.complete_resume_sessions(line);
+            }
+
             return Ok((pos, vec![]));
         }
 
@@ -608,6 +682,78 @@ mod tests {
         let (pos, candidates) = completer.complete_model_names("/model gpt").unwrap();
         assert_eq!(pos, "/model gpt".len());
         assert!(candidates.is_empty());
+    }
+
+    #[test]
+    fn test_complete_resume_sessions() {
+        use crate::session::ResumeCompletionEntry;
+
+        let cache = create_test_cache();
+        {
+            let mut guard = cache.write().unwrap();
+            guard.resume_sessions = vec![
+                ResumeCompletionEntry {
+                    session_id: "20260326_1".to_string(),
+                    name: "older-work".to_string(),
+                    message_count: 3,
+                    is_current: false,
+                },
+                ResumeCompletionEntry {
+                    session_id: "20260326_2".to_string(),
+                    name: "react-migration".to_string(),
+                    message_count: 12,
+                    is_current: false,
+                },
+                ResumeCompletionEntry {
+                    session_id: "20260326_3".to_string(),
+                    name: "current-work".to_string(),
+                    message_count: 2,
+                    is_current: true,
+                },
+                ResumeCompletionEntry {
+                    session_id: "20260326_4".to_string(),
+                    name: "empty-skipped".to_string(),
+                    message_count: 0,
+                    is_current: false,
+                },
+            ];
+        }
+        let completer = GooseCompleter::new(cache);
+
+        // After `/resume ` list non-empty, non-current sessions
+        let (pos, candidates) = completer.complete_resume_sessions("/resume ").unwrap();
+        assert_eq!(pos, "/resume ".len());
+        assert_eq!(candidates.len(), 2, "should skip current and empty");
+        assert!(candidates.iter().any(|c| c.display.contains("older-work")));
+        assert!(candidates
+            .iter()
+            .any(|c| c.display.contains("react-migration")));
+        assert!(!candidates
+            .iter()
+            .any(|c| c.display.contains("current-work")));
+        assert!(!candidates
+            .iter()
+            .any(|c| c.display.contains("empty-skipped")));
+
+        // Prefix by name
+        let (pos, candidates) = completer.complete_resume_sessions("/resume re").unwrap();
+        assert_eq!(pos, "/resume ".len());
+        assert_eq!(candidates.len(), 1);
+        assert!(candidates[0].display.contains("react-migration"));
+        assert_eq!(candidates[0].replacement, "react-migration ");
+
+        // Prefix by session id
+        let (pos, candidates) = completer
+            .complete_resume_sessions("/resume 20260326_1")
+            .unwrap();
+        assert_eq!(pos, "/resume ".len());
+        assert_eq!(candidates.len(), 1);
+        assert!(candidates[0].display.contains("older-work"));
+        assert_eq!(candidates[0].replacement, "20260326_1 ");
+
+        // Partial command name still uses slash-command completion path, not args
+        let (pos, candidates) = completer.complete_resume_sessions("/resumex").unwrap();
+        assert!(candidates.is_empty() || pos == "/resumex".len());
     }
 
     #[test]

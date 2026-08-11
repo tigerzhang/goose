@@ -33,6 +33,8 @@ pub enum InputResult {
     Edit(Option<String>),
     ListSkills,
     LoadSkills(Vec<String>),
+    /// Resume a prior session: `None` = latest prior, `Some` = name or id.
+    Resume(Option<String>),
 }
 
 #[derive(Debug)]
@@ -239,6 +241,7 @@ fn handle_slash_command(input: &str) -> Option<InputResult> {
     const CMD_EDIT: &str = "/edit";
     const CMD_EDIT_WITH_SPACE: &str = "/edit ";
     const CMD_SKILLS: &str = "/skills";
+    const CMD_RESUME: &str = "/resume";
 
     match input {
         "/exit" | "/quit" => Some(InputResult::Exit),
@@ -329,7 +332,13 @@ fn handle_slash_command(input: &str) -> Option<InputResult> {
             println!("{}", console::style("⚠️  Note: /summarize has been renamed to /compact and will be removed in a future release.").yellow());
             Some(InputResult::Compact)
         }
+        // Exact `/r` only — must not match `/resume`
         "/r" => Some(InputResult::ToggleFullToolOutput),
+        s if s == CMD_RESUME || s.starts_with(&format!("{CMD_RESUME} ")) => {
+            let args = s.get(CMD_RESUME.len()..).unwrap_or("").trim();
+            let target = goose::session::parse_resume_target(args).map(str::to_string);
+            Some(InputResult::Resume(target))
+        }
         s if s == CMD_EDIT => Some(InputResult::Edit(None)),
         s if s.starts_with(CMD_EDIT_WITH_SPACE) => {
             let prefill = s
@@ -448,6 +457,8 @@ fn help_text() -> String {
 /t - Toggle Light/Dark/Ansi theme
 /t <name> - Set theme directly (light, dark, ansi)
 /r - Toggle full tool output display (show complete tool parameters without truncation)
+/resume - Open a tip menu of saved sessions (with messages) to resume
+/resume <name-or-id> - Resume a specific session by name or id
 /extension <command> - Add a stdio extension (format: ENV1=val1 command args...)
 /builtin <names> - Add builtin extensions by name (comma-separated)
 /prompts [--extension <name>] - List all available prompts, optionally filtered by extension
@@ -479,8 +490,9 @@ Up/Down arrows - Navigate through command history"
 }
 
 fn additional_builtin_help() -> String {
-    const DOCUMENTED_BUILTINS: &[&str] =
-        &["prompts", "prompt", "compact", "clear", "skills", "status"];
+    const DOCUMENTED_BUILTINS: &[&str] = &[
+        "prompts", "prompt", "compact", "clear", "skills", "status", "resume",
+    ];
 
     goose::agents::execute_commands::list_commands()
         .iter()
@@ -551,11 +563,29 @@ mod tests {
             Some(InputResult::ToggleTheme)
         ));
 
-        // Test full tool output toggle
+        // Test full tool output toggle (must stay distinct from /resume)
         assert!(matches!(
             handle_slash_command("/r"),
             Some(InputResult::ToggleFullToolOutput)
         ));
+
+        // Test /resume
+        assert!(matches!(
+            handle_slash_command("/resume"),
+            Some(InputResult::Resume(None))
+        ));
+        if let Some(InputResult::Resume(Some(name))) =
+            handle_slash_command("/resume react-migration")
+        {
+            assert_eq!(name, "react-migration");
+        } else {
+            panic!("Expected Resume with name");
+        }
+        if let Some(InputResult::Resume(Some(id))) = handle_slash_command("/resume 20251108_3") {
+            assert_eq!(id, "20251108_3");
+        } else {
+            panic!("Expected Resume with session id");
+        }
 
         // Test extension command
         if let Some(InputResult::AddExtension(cmd)) = handle_slash_command("/extension foo bar") {

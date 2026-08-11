@@ -204,10 +204,21 @@ pub enum HintStatus {
     MaybeExit,
 }
 
+/// A saved session offered as a `/resume` autocomplete candidate.
+#[derive(Debug, Clone)]
+pub struct ResumeCompletionEntry {
+    pub session_id: String,
+    pub name: String,
+    pub message_count: usize,
+    pub is_current: bool,
+}
+
 // Cache structure for completion data
 pub struct CompletionCache {
     pub prompts: HashMap<String, Vec<String>>,
     pub prompt_info: HashMap<String, output::PromptInfo>,
+    /// Non-empty user sessions for `/resume` argument completion.
+    pub resume_sessions: Vec<ResumeCompletionEntry>,
     pub last_updated: Instant,
     pub hint_status: HintStatus,
 }
@@ -217,6 +228,7 @@ impl CompletionCache {
         Self {
             prompts: HashMap::new(),
             prompt_info: HashMap::new(),
+            resume_sessions: Vec::new(),
             last_updated: Instant::now(),
             hint_status: HintStatus::Default,
         }
@@ -546,6 +558,8 @@ impl CliSession {
 
         loop {
             self.display_context_usage().await?;
+            // Keep `/resume` autocomplete in sync with sessions that have messages.
+            self.refresh_resume_completions().await;
 
             let conversation_strings: Vec<String> = self
                 .messages
@@ -706,6 +720,10 @@ impl CliSession {
             InputResult::ListSkills => {
                 history.save(editor);
                 self.handle_list_skills().await?;
+            }
+            InputResult::Resume(target) => {
+                history.save(editor);
+                self.handle_resume(target.as_deref()).await?;
             }
         }
         Ok(())
@@ -958,6 +976,70 @@ impl CliSession {
             self.debug,
         );
         Ok(())
+    }
+
+    async fn handle_resume(&mut self, target: Option<&str>) -> Result<()> {
+        let prior_session_id = self.session_id.clone();
+
+        // Bare `/resume` opens a tip menu of non-empty sessions; with a target,
+        // rebind directly to that session.
+        let target_id = if let Some(target) = target {
+            target.to_string()
+        } else {
+            match prompt_resume_session_selection(
+                self.agent.config.session_manager.as_ref(),
+                &prior_session_id,
+            )
+            .await
+            {
+                Ok(Some(id)) => id,
+                Ok(None) => {
+                    // User cancelled — leave the current session unchanged.
+                    return Ok(());
+                }
+                Err(e) => {
+                    output::render_error(&e.to_string());
+                    return Ok(());
+                }
+            }
+        };
+
+        match goose::session::resolve_resume_session(
+            self.agent.config.session_manager.as_ref(),
+            &target_id,
+            Some(&prior_session_id),
+        )
+        .await
+        {
+            Ok(resumed) => {
+                if resumed.session_id == prior_session_id {
+                    output::render_message(
+                        &Message::assistant()
+                            .with_text("Already in that session — nothing to resume.\n"),
+                        self.debug,
+                    );
+                    return Ok(());
+                }
+                self.session_id = resumed.session_id.clone();
+                self.messages = resumed.conversation;
+                let label = if resumed.name.is_empty() {
+                    resumed.session_id
+                } else {
+                    format!("{} ({})", resumed.name, resumed.session_id)
+                };
+                self.refresh_resume_completions().await;
+                output::render_message(
+                    &Message::assistant().with_text(format!("Resumed session {label}.\n")),
+                    self.debug,
+                );
+                Ok(())
+            }
+            Err(e) => {
+                debug_assert_eq!(self.session_id, prior_session_id);
+                output::render_error(&e.to_string());
+                Ok(())
+            }
+        }
     }
 
     async fn handle_recipe(&mut self, filepath_opt: Option<String>) {
@@ -1382,6 +1464,13 @@ impl CliSession {
                         Some(Ok(AgentEvent::HistoryReplaced(updated_conversation))) => {
                             self.messages = updated_conversation;
                         }
+                        Some(Ok(AgentEvent::SessionResumed {
+                            session_id,
+                            conversation,
+                        })) => {
+                            self.session_id = session_id;
+                            self.messages = conversation;
+                        }
                         Some(Err(e)) => {
                             handle_agent_error(&e, is_stream_json_mode);
                             cancel_token_clone.cancel();
@@ -1594,7 +1683,32 @@ impl CliSession {
         }
 
         cache.last_updated = Instant::now();
+        drop(cache);
+
+        self.refresh_resume_completions().await;
         Ok(())
+    }
+
+    /// Refresh `/resume` session autocomplete candidates (non-empty user sessions).
+    pub async fn refresh_resume_completions(&self) {
+        let entries = goose::session::list_resume_sessions(
+            self.agent.config.session_manager.as_ref(),
+            Some(&self.session_id),
+        )
+        .await
+        .unwrap_or_default();
+
+        let mut cache = self.completion_cache.write().unwrap();
+        cache.resume_sessions = entries
+            .into_iter()
+            .map(|e| ResumeCompletionEntry {
+                session_id: e.session_id,
+                name: e.name,
+                message_count: e.message_count,
+                is_current: e.is_current,
+            })
+            .collect();
+        cache.last_updated = Instant::now();
     }
 
     /// Invalidate the completion cache
@@ -1603,6 +1717,7 @@ impl CliSession {
         let mut cache = self.completion_cache.write().unwrap();
         cache.prompts.clear();
         cache.prompt_info.clear();
+        cache.resume_sessions.clear();
         cache.last_updated = Instant::now();
     }
 
@@ -1924,6 +2039,58 @@ fn maybe_open_credits_top_up_url(
 fn emit_stream_event(event: &StreamEvent) {
     if let Ok(json) = serde_json::to_string(event) {
         println!("{}", json);
+    }
+}
+
+/// Interactive tip menu: pick a non-empty prior session to resume.
+///
+/// Returns `Ok(Some(session_id))` on selection, `Ok(None)` if the user cancels
+/// or there is nothing to pick.
+async fn prompt_resume_session_selection(
+    session_manager: &goose::session::SessionManager,
+    current_session_id: &str,
+) -> Result<Option<String>> {
+    let entries =
+        goose::session::list_resume_sessions(session_manager, Some(current_session_id)).await?;
+    let selectable: Vec<_> = goose::session::selectable_resume_sessions(&entries)
+        .into_iter()
+        .cloned()
+        .collect();
+
+    if selectable.is_empty() {
+        output::render_message(
+            &Message::assistant().with_text(
+                "No other saved sessions with messages found.\n\
+                 Chat in a session first, then use `/resume` to pick one.\n",
+            ),
+            false,
+        );
+        return Ok(None);
+    }
+
+    let mut selector =
+        cliclack::select("Resume a saved session (↑↓, Enter to select, Esc to cancel):");
+    for entry in &selectable {
+        let label = goose::session::format_resume_session_label(entry);
+        selector = selector.item(entry.session_id.clone(), label, "");
+    }
+    selector = selector.item(
+        String::from("__cancel__"),
+        "Cancel",
+        "Stay in the current session",
+    );
+
+    match selector.interact() {
+        Ok(selected) if selected == "__cancel__" => {
+            println!("{}", console::style("Resume canceled.").dim());
+            Ok(None)
+        }
+        Ok(selected) => Ok(Some(selected)),
+        Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {
+            println!("{}", console::style("Resume canceled.").dim());
+            Ok(None)
+        }
+        Err(e) => Err(e.into()),
     }
 }
 

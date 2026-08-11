@@ -274,6 +274,11 @@ pub enum AgentEvent {
     },
     McpNotification((String, ServerNotification)),
     HistoryReplaced(Conversation),
+    /// Switch the interactive client to another stored session (from `/resume`).
+    SessionResumed {
+        session_id: String,
+        conversation: Conversation,
+    },
 }
 
 fn project_message_for_user_event(message: &Message) -> Message {
@@ -1655,7 +1660,42 @@ impl Agent {
                     Ok(AgentEvent::Message(error_message))
                 })));
             }
-            Ok(Some(response))
+            Ok(crate::agents::execute_commands::CommandOutcome::Resume(resumed)) => {
+                // Do not write resume traffic onto the old session; the client
+                // rebinds to resumed.session_id and loads resumed.conversation.
+                let label = if resumed.name.is_empty() {
+                    resumed.session_id.clone()
+                } else {
+                    format!("{} ({})", resumed.name, resumed.session_id)
+                };
+                let list_suffix = match crate::session::list_resume_sessions(
+                    session_manager.as_ref(),
+                    Some(&resumed.session_id),
+                )
+                .await
+                {
+                    Ok(entries) => {
+                        let body = crate::session::format_resume_session_list(
+                            &entries,
+                            Some(&resumed.session_id),
+                        );
+                        format!("\n\n{body}")
+                    }
+                    Err(_) => String::new(),
+                };
+                let response = Message::assistant()
+                    .with_text(format!("Resumed session {label}.{list_suffix}"))
+                    .with_visibility(true, false);
+                return Ok(Box::pin(async_stream::try_stream! {
+                    yield AgentEvent::Message(user_message.with_visibility(true, false));
+                    yield AgentEvent::Message(response);
+                    yield AgentEvent::SessionResumed {
+                        session_id: resumed.session_id,
+                        conversation: resumed.conversation,
+                    };
+                }));
+            }
+            Ok(crate::agents::execute_commands::CommandOutcome::Message(response))
                 if response.role == rmcp::model::Role::Assistant
                     && crate::agents::execute_commands::command_starts_turn(&message_text) =>
             {
@@ -1693,7 +1733,9 @@ impl Agent {
                     AgentEvent::Message(response.clone()),
                 ];
             }
-            Ok(Some(response)) if response.role == rmcp::model::Role::Assistant => {
+            Ok(crate::agents::execute_commands::CommandOutcome::Message(response))
+                if response.role == rmcp::model::Role::Assistant =>
+            {
                 session_manager
                     .add_message(
                         &session_config.id,
@@ -1728,7 +1770,7 @@ impl Agent {
                     }
                 }));
             }
-            Ok(Some(resolved_message)) => {
+            Ok(crate::agents::execute_commands::CommandOutcome::Message(resolved_message)) => {
                 session_manager
                     .add_message(
                         &session_config.id,
@@ -1742,7 +1784,7 @@ impl Agent {
                     )
                     .await?;
             }
-            Ok(None) => {
+            Ok(crate::agents::execute_commands::CommandOutcome::NotACommand) => {
                 session_manager
                     .add_message(&session_config.id, &user_message)
                     .await?;
@@ -4022,6 +4064,7 @@ echo start >> "$PLUGIN_ROOT/hook.log"
                 AgentEvent::Message(message) => messages.push(message),
                 AgentEvent::McpNotification(_)
                 | AgentEvent::HistoryReplaced(_)
+                | AgentEvent::SessionResumed { .. }
                 | AgentEvent::Usage(_)
                 | AgentEvent::MessageUsage { .. } => {}
             }

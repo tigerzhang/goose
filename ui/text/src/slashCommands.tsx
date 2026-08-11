@@ -59,6 +59,7 @@ const AGENT_COMMANDS = new Set([
   "doctor",
   "goal",
   "grind",
+  "resume",
 ]);
 
 export const STARTUP_GUIDE_COMMANDS: ReadonlyArray<{
@@ -267,6 +268,10 @@ const COMMANDS: Record<string, SlashCommand> = {
   doctor: agentPassthrough("doctor", "check goose setup"),
   goal: agentPassthrough("goal", "set or clear session goal"),
   grind: agentPassthrough("grind", "set or clear grind goal"),
+  resume: agentPassthrough(
+    "resume",
+    "pick a saved session (with messages), or resume by name/id",
+  ),
 };
 
 export function tryRunSlashCommand(

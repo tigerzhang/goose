@@ -361,7 +361,13 @@ async fn test_manual_compaction_updates_token_counts_and_conversation() -> Resul
 
     // Execute manual compaction
     let result = agent.execute_command("/compact", &session.id).await?;
-    assert!(result.is_some(), "Compaction should return a result");
+    assert!(
+        matches!(
+            result,
+            goose::agents::execute_commands::CommandOutcome::Message(_)
+        ),
+        "Compaction should return a result message, got {result:?}"
+    );
 
     // Verify token counts
     let updated_session = agent
