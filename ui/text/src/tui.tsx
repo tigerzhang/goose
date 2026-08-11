@@ -64,7 +64,14 @@ import {
   SCROLL_STEP,
   SCROLL_FAST_MULTIPLIER,
 } from "./constants.js";
-import { tryRunSlashCommand } from "./slashCommands.js";
+import {
+  tryRunSlashCommand,
+  matchSlashCommands,
+  STARTUP_GUIDE_COMMANDS,
+  STARTUP_GUIDE_KEYS,
+  SLASH_AUTOCOMPLETE_MAX,
+  type SlashSuggestion,
+} from "./slashCommands.js";
 
 function parseAcpUsageUpdate(
   update: SessionNotification["update"],
@@ -93,6 +100,10 @@ const InputBar = React.memo(function InputBar({
   focused,
   pastedFull,
   onPastedFullChange,
+  suggestions,
+  selectedSuggestion,
+  onSelectSuggestion,
+  onApplySuggestion,
 }: {
   width: number;
   input: string;
@@ -104,8 +115,14 @@ const InputBar = React.memo(function InputBar({
   focused: boolean;
   pastedFull: string | null;
   onPastedFullChange: (v: string | null) => void;
+  suggestions: SlashSuggestion[];
+  selectedSuggestion: number;
+  onSelectSuggestion: (index: number) => void;
+  onApplySuggestion: (suggestion: SlashSuggestion) => void;
 }) {
   const prevLenRef = useRef(input.length);
+  const hasSuggestions = suggestions.length > 0;
+  const visibleSuggestions = suggestions.slice(0, SLASH_AUTOCOMPLETE_MAX);
 
   const handleChange = useCallback(
     (newValue: string) => {
@@ -131,6 +148,7 @@ const InputBar = React.memo(function InputBar({
     [onSubmit, onPastedFullChange],
   );
 
+  // Paste-mode keyboard handling
   useInput(
     (ch, key) => {
       if (key.return) {
@@ -158,9 +176,43 @@ const InputBar = React.memo(function InputBar({
     { isActive: focused && pastedFull !== null },
   );
 
+  // Slash-command autocomplete keys (Tab / arrows) when suggestions are open.
+  // Enter always submits the current text — only Tab completes.
+  useInput(
+    (_ch, key) => {
+      if (!hasSuggestions) return;
+
+      if (key.tab) {
+        const pick =
+          visibleSuggestions[
+            Math.min(selectedSuggestion, visibleSuggestions.length - 1)
+          ];
+        if (pick) onApplySuggestion(pick);
+        return;
+      }
+      if (key.upArrow && !key.shift && !key.meta) {
+        onSelectSuggestion(
+          selectedSuggestion <= 0
+            ? visibleSuggestions.length - 1
+            : selectedSuggestion - 1,
+        );
+        return;
+      }
+      if (key.downArrow && !key.shift && !key.meta) {
+        onSelectSuggestion(
+          (selectedSuggestion + 1) % visibleSuggestions.length,
+        );
+        return;
+      }
+    },
+    { isActive: focused && pastedFull === null && hasSuggestions },
+  );
+
   const isPasteMode = pastedFull !== null;
   const constrainedWidth = Math.max(width, 20);
   const contentWidth = Math.max(constrainedWidth - 6, 10);
+  const cmdColWidth = Math.min(14, Math.max(contentWidth - 8, 8));
+  const descColWidth = Math.max(contentWidth - cmdColWidth - 2, 8);
 
   return (
     <Box
@@ -221,13 +273,24 @@ const InputBar = React.memo(function InputBar({
                 useInput(
                   (ch, key) => {
                     if (key.shift && (key.upArrow || key.downArrow)) return;
+                    // Autocomplete owns Tab and ↑↓ while the popup is open.
+                    if (hasSuggestions) {
+                      if (key.tab || ch === "\t") return;
+                      if (
+                        (key.upArrow || key.downArrow) &&
+                        !key.shift &&
+                        !key.meta
+                      ) {
+                        return;
+                      }
+                    }
                     handler(ch, key);
                   },
                   { isActive },
                 );
               }}
             />
-            {scrollHint && (
+            {scrollHint && !hasSuggestions && (
               <Text color={TEXT_DIM}>
                 ↑↓ scroll · ⌥↑↓ fast · shift+↑↓ history
               </Text>
@@ -235,6 +298,36 @@ const InputBar = React.memo(function InputBar({
           </Box>
         )}
       </Box>
+      {hasSuggestions && !isPasteMode && (
+        <Box flexDirection="column" width={contentWidth}>
+          {visibleSuggestions.map((s, i) => {
+            const selected = i === selectedSuggestion;
+            return (
+              <Box key={s.name} height={1} width={contentWidth}>
+                <Box width={cmdColWidth}>
+                  <Text color={selected ? TEAL : TEXT_DIM} bold={selected}>
+                    {selected ? "› " : "  "}/{s.name}
+                  </Text>
+                </Box>
+                <Box width={descColWidth}>
+                  <Text
+                    color={selected ? TEXT_PRIMARY : TEXT_DIM}
+                    wrap="truncate"
+                  >
+                    {s.description}
+                  </Text>
+                </Box>
+              </Box>
+            );
+          })}
+          <Text color={TEXT_DIM} italic>
+            tab complete · ↑↓ select
+            {suggestions.length > SLASH_AUTOCOMPLETE_MAX
+              ? ` · ${suggestions.length - SLASH_AUTOCOMPLETE_MAX} more`
+              : ""}
+          </Text>
+        </Box>
+      )}
       {isPasteMode && (
         <Box>
           <Text color={TEXT_DIM} italic>
@@ -451,13 +544,25 @@ const SplashScreen = React.memo(function SplashScreen({
   const statusColor =
     status === "ready" ? TEAL : isErrorStatus(status) ? CRANBERRY : TEXT_DIM;
 
-  const contentHeight = frame.length + 1 + 1 + 1 + 2 + 1;
+  // goose art + title + tagline + status row (no guide)
+  const baseContentHeight = frame.length + 1 + 1 + 1 + 2 + 1;
+  // header line + commands + key lines + top margin
+  const fullGuideLines =
+    1 + STARTUP_GUIDE_COMMANDS.length + STARTUP_GUIDE_KEYS.length + 1;
+  const safeWidth = Math.max(width, 20);
+  const safeHeight = Math.max(height, 10);
+  // Only show the guide when ready and it fits without clipping the splash.
+  const showGuide =
+    status === "ready" &&
+    !loading &&
+    safeHeight >= baseContentHeight + fullGuideLines;
+  const contentHeight = baseContentHeight + (showGuide ? fullGuideLines : 0);
 
   const topPad = Math.max(0, Math.floor((height - contentHeight) / 2));
 
-  // Use original dimensions for outer container to maintain centering
-  const safeWidth = Math.max(width, 20);
-  const safeHeight = Math.max(height, 10);
+  // Leave room for left margin + cmd column + gap
+  const guideCmdWidth = 14;
+  const guideDescWidth = Math.max(safeWidth - guideCmdWidth - 4, 12);
 
   return (
     <Box
@@ -487,6 +592,39 @@ const SplashScreen = React.memo(function SplashScreen({
         {loading && <Spinner idx={spinIdx} />}
         <Text color={statusColor}>{status}</Text>
       </Box>
+      {showGuide && (
+        <Box
+          flexDirection="column"
+          marginTop={1}
+          width={Math.min(safeWidth, 56)}
+        >
+          <Text color={TEXT_DIM}>· inline commands</Text>
+          {STARTUP_GUIDE_COMMANDS.map(({ cmd, desc }) => (
+            <Box key={cmd} height={1}>
+              <Box width={guideCmdWidth}>
+                <Text color={TEAL}>  {cmd}</Text>
+              </Box>
+              <Box width={guideDescWidth}>
+                <Text color={TEXT_DIM} wrap="truncate">
+                  {desc}
+                </Text>
+              </Box>
+            </Box>
+          ))}
+          {STARTUP_GUIDE_KEYS.map(({ key, desc }) => (
+            <Box key={key} height={1}>
+              <Box width={guideCmdWidth}>
+                <Text color={TEAL}>  {key}</Text>
+              </Box>
+              <Box width={guideDescWidth}>
+                <Text color={TEXT_DIM} wrap="truncate">
+                  {desc}
+                </Text>
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 });
@@ -542,12 +680,18 @@ function App({
   const [toolCallExpandedScroll, setToolCallExpandedScroll] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [pastedFull, setPastedFull] = useState<string | null>(null);
+  const [slashSuggestionIdx, setSlashSuggestionIdx] = useState(0);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   type Overlay =
     | { screen: "configure"; intent: ConfigureIntent }
     | { screen: "extensions" }
     | { screen: "diff"; content: string; truncated: boolean };
   const [overlay, setOverlay] = useState<Overlay | null>(null);
+
+  const slashSuggestions = useMemo(() => matchSlashCommands(input), [input]);
+  useEffect(() => {
+    setSlashSuggestionIdx(0);
+  }, [input]);
 
   const clientRef = useRef<GooseClient | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -907,24 +1051,85 @@ function App({
     setScrollOffset(0);
   }, []);
 
+  const clearLocalTurns = useCallback(() => {
+    setTurns([]);
+    setViewTurnIdx(-1);
+    setSelectedToolCallIdx(null);
+    setToolCallExpanded(false);
+    setToolCallExpandedScroll(0);
+    setScrollOffset(0);
+    setBannerVisible(true);
+    setContextUsage(null);
+  }, []);
+
   const runSlashCommand = useCallback(
     (raw: string): boolean => {
       const result = tryRunSlashCommand(raw, {
         cwd: sessionCwdRef.current,
       });
       if (!result.handled) return false;
-      if ("overlay" in result && result.overlay === "diff") {
-        setOverlay({
-          screen: "diff",
-          content: result.content,
-          truncated: result.truncated,
-        });
-        return true;
+
+      if ("action" in result) {
+        if (result.action === "exit") {
+          exit();
+          return true;
+        }
+        if (result.action === "clear") {
+          // Clear local UI immediately (matches desktop), drop any queued
+          // prompts, then tell the agent so the session history is wiped too.
+          clearLocalTurns();
+          queueRef.current = [];
+          setQueuedMessages([]);
+          if (loading || isProcessingRef.current) {
+            queueRef.current.push("/clear");
+            setQueuedMessages(["/clear"]);
+          } else {
+            void sendPrompt("/clear");
+          }
+          return true;
+        }
+        if (result.action === "agent") {
+          if (loading || isProcessingRef.current) {
+            queueRef.current.push(result.text);
+            setQueuedMessages([...queueRef.current]);
+          } else {
+            void sendPrompt(result.text);
+          }
+          return true;
+        }
       }
+
+      if ("overlay" in result) {
+        if (result.overlay === "diff") {
+          setOverlay({
+            screen: "diff",
+            content: result.content,
+            truncated: result.truncated,
+          });
+          return true;
+        }
+        if (result.overlay === "configure") {
+          if (!sessionIdRef.current) {
+            addLocalTurn(raw, "session not ready");
+            return true;
+          }
+          setOverlay({ screen: "configure", intent: result.intent });
+          return true;
+        }
+        if (result.overlay === "extensions") {
+          if (!sessionIdRef.current) {
+            addLocalTurn(raw, "session not ready");
+            return true;
+          }
+          setOverlay({ screen: "extensions" });
+          return true;
+        }
+      }
+
       addLocalTurn(raw, "message" in result ? result.message : undefined);
       return true;
     },
-    [addLocalTurn],
+    [addLocalTurn, clearLocalTurns, exit, loading, sendPrompt],
   );
 
   const handleSubmit = useCallback(
@@ -933,13 +1138,17 @@ function App({
       if (!trimmed) return;
       setInput("");
       setPastedFull(null);
+      setSlashSuggestionIdx(0);
       setViewTurnIdx(-1);
       setSelectedToolCallIdx(null);
       setToolCallExpanded(false);
       setToolCallExpandedScroll(0);
       setScrollOffset(0);
 
-      if (trimmed.startsWith("/") && runSlashCommand(trimmed)) return;
+      if (trimmed.startsWith("/")) {
+        if (runSlashCommand(trimmed)) return;
+        // Unknown slash form that was not handled — still try as agent text.
+      }
 
       if (loading || isProcessingRef.current) {
         queueRef.current.push(trimmed);
@@ -950,6 +1159,11 @@ function App({
     },
     [loading, sendPrompt, runSlashCommand],
   );
+
+  const applySlashSuggestion = useCallback((suggestion: SlashSuggestion) => {
+    setInput(suggestion.completion);
+    setSlashSuggestionIdx(0);
+  }, []);
 
   const PAD_X = 2;
   const PAD_TOP = 0;
@@ -972,8 +1186,14 @@ function App({
       ? 1
       : Math.min(Math.max(input.split("\n").length, 1), INPUT_MAX_ROWS)
     : 0;
+  const slashSuggestLines =
+    showInputBar && !isPasteMode && slashSuggestions.length > 0
+      ? Math.min(slashSuggestions.length, SLASH_AUTOCOMPLETE_MAX) + 1 // rows + tip line
+      : 0;
   const inputExtraLines =
-    (isPasteMode ? 1 : 0) + (queuedMessages.length > 0 ? 1 : 0);
+    (isPasteMode ? 1 : 0) +
+    (queuedMessages.length > 0 ? 1 : 0) +
+    slashSuggestLines;
   const inputBarH = showInputBar
     ? 2 + inputContentRows + inputExtraLines + 1 // +1 for marginTop gap above input bar
     : 0;
@@ -1116,6 +1336,8 @@ function App({
 
       const viewingHistory =
         viewTurnIdx !== -1 && viewTurnIdx < turns.length - 1;
+      const slashAutocompleteOpen =
+        showInputBar && pastedFull === null && slashSuggestions.length > 0;
       const multilineOwnsArrows =
         !initialPrompt &&
         !viewingHistory &&
@@ -1129,6 +1351,8 @@ function App({
       }
 
       if ((key.upArrow || key.downArrow) && !key.shift) {
+        // Slash popup owns plain ↑↓ while completing a command name.
+        if (slashAutocompleteOpen && !key.meta) return;
         if (multilineOwnsArrows) return;
 
         if (key.meta) {
@@ -1329,10 +1553,21 @@ function App({
           onSubmit={handleSubmit}
           queued={queuedMessages.length > 0}
           scrollHint={!bannerVisible && turns.length > 1}
-          placeholder={bannerVisible ? INITIAL_GREETING : undefined}
+          placeholder={
+            bannerVisible
+              ? "type / for commands · Tab to complete"
+              : undefined
+          }
           focused={showInputBar}
           pastedFull={pastedFull}
           onPastedFullChange={setPastedFull}
+          suggestions={slashSuggestions}
+          selectedSuggestion={Math.min(
+            slashSuggestionIdx,
+            Math.max(slashSuggestions.length - 1, 0),
+          )}
+          onSelectSuggestion={setSlashSuggestionIdx}
+          onApplySuggestion={applySlashSuggestion}
         />
       )}
       <StatusBar
