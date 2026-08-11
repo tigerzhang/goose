@@ -105,6 +105,8 @@ export const getExtensionIcon = (extensionName: string): React.ComponentType<Too
       return Brain;
     case 'computercontroller':
       return Monitor;
+    case 'polymarket':
+      return Numbers;
     default:
       return Tool;
   }

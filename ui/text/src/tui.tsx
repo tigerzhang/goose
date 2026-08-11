@@ -39,6 +39,10 @@ import {
 } from "./components/ContentRenderers.js";
 import { Header } from "./components/Header.js";
 import { Rule } from "./components/Rule.js";
+import {
+  StatusBar,
+  type ContextUsage,
+} from "./components/StatusBar.js";
 import { ToolCallExpanded } from "./components/ToolCallExpanded.js";
 import type { ToolCallInfo } from "./toolcall.js";
 import { isErrorStatus, formatError } from "./utils.js";
@@ -61,6 +65,22 @@ import {
   SCROLL_FAST_MULTIPLIER,
 } from "./constants.js";
 import { tryRunSlashCommand } from "./slashCommands.js";
+
+function parseAcpUsageUpdate(
+  update: SessionNotification["update"],
+): ContextUsage | null {
+  if (update.sessionUpdate !== "usage_update") return null;
+  const u = update as {
+    sessionUpdate: "usage_update";
+    used?: unknown;
+    size?: unknown;
+  };
+  if (typeof u.used !== "number" || typeof u.size !== "number") return null;
+  if (!Number.isFinite(u.used) || !Number.isFinite(u.size) || u.size <= 0) {
+    return null;
+  }
+  return { used: u.used, size: u.size };
+}
 
 const InputBar = React.memo(function InputBar({
   width,
@@ -512,6 +532,7 @@ function App({
   const [gooseFrame, setGooseFrame] = useState(0);
   const [bannerVisible, setBannerVisible] = useState(true);
   const [queuedMessages, setQueuedMessages] = useState<string[]>([]);
+  const [contextUsage, setContextUsage] = useState<ContextUsage | null>(null);
 
   const [viewTurnIdx, setViewTurnIdx] = useState(-1);
   const [selectedToolCallIdx, setSelectedToolCallIdx] = useState<number | null>(
@@ -782,6 +803,28 @@ function App({
                 handleToolCall(update);
               } else if (update.sessionUpdate === "tool_call_update") {
                 handleToolCallUpdate(update);
+              } else {
+                const usage = parseAcpUsageUpdate(update);
+                if (usage) setContextUsage(usage);
+              }
+            },
+            unstable_sessionUpdate: async (notification) => {
+              const update = notification.update;
+              if (update.sessionUpdate === "usage_update") {
+                if (
+                  typeof update.used === "number" &&
+                  typeof update.contextLimit === "number" &&
+                  update.contextLimit > 0
+                ) {
+                  setContextUsage({
+                    used: update.used,
+                    size: update.contextLimit,
+                  });
+                }
+              } else if (update.sessionUpdate === "status_message") {
+                if (update.status.type === "progress") {
+                  setStatus(update.status.message);
+                }
               }
             },
           }),
@@ -922,6 +965,7 @@ function App({
   const showInputBar = !initialPrompt && !isViewingHistory;
 
   const headerH = 2;
+  const statusBarH = 2; // rule + status/context line
   const isPasteMode = pastedFull !== null;
   const inputContentRows = showInputBar
     ? isPasteMode
@@ -935,7 +979,13 @@ function App({
     : 0;
   const historyBarH = isViewingHistory ? 2 : 0;
   const viewportHeight = Math.max(
-    safeTermHeight - PAD_TOP - PAD_BOTTOM - headerH - inputBarH - historyBarH,
+    safeTermHeight -
+      PAD_TOP -
+      PAD_BOTTOM -
+      headerH -
+      inputBarH -
+      historyBarH -
+      statusBarH,
     3,
   );
 
@@ -1215,7 +1265,11 @@ function App({
           animFrame={gooseFrame}
           width={contentWidth}
           height={Math.max(
-            safeTermHeight - PAD_TOP - PAD_BOTTOM - inputBarH,
+            safeTermHeight -
+              PAD_TOP -
+              PAD_BOTTOM -
+              inputBarH -
+              statusBarH,
             0,
           )}
           status={status}
@@ -1226,9 +1280,6 @@ function App({
         <>
           <Header
             width={contentWidth}
-            status={status}
-            loading={loading}
-            spinIdx={spinIdx}
             turnInfo={
               turns.length > 1
                 ? { current: effectiveTurnIdx + 1, total: turns.length }
@@ -1284,6 +1335,13 @@ function App({
           onPastedFullChange={setPastedFull}
         />
       )}
+      <StatusBar
+        width={contentWidth}
+        status={status}
+        loading={loading}
+        spinIdx={spinIdx}
+        contextUsage={contextUsage}
+      />
     </Box>
   );
 }
