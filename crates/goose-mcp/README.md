@@ -27,6 +27,7 @@ Built-in extension for Polymarket discovery, books, analysis context, and paper/
 - **In goose:** `goose session --with-builtin polymarket`
 - **MCP process:** `goose mcp polymarket`
 - **User docs:** [Polymarket MCP](../../documentation/docs/mcp/polymarket-mcp.md)
+- **Detailed design:** [Polymarket MCP Design](../../documentation/docs/goose-architecture/polymarket-mcp-design.md)
 - **Code:** `src/polymarket/`
 - **Browser path** reuses the same headless Chrome stack as `browser_scrape` (Chrome/Chromium on `PATH`).
 - **Live orders** require `POLYMARKET_ENABLE_LIVE_ORDERS=1`, `confirm_live`, and a pre-signed order from Polymarket’s official SDK.

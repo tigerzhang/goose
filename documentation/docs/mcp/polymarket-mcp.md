@@ -105,5 +105,6 @@ Prediction-market trading can lose money. You are responsible for jurisdiction, 
 
 ## Related
 
+- [Polymarket MCP Detailed Design](/docs/goose-architecture/polymarket-mcp-design)
 - Official docs: [docs.polymarket.com](https://docs.polymarket.com/)  
 - Computer Controller `browser_scrape` (generic JS scrape): [Computer Controller](/docs/mcp/computer-controller-mcp)
