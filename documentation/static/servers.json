@@ -436,6 +436,38 @@
     "environmentVariables": []
   },
   {
+    "id": "polymarket",
+    "name": "Polymarket",
+    "description": "Built-in Polymarket tools: Gamma/CLOB/Data APIs, browser scrape, analysis context, paper and live order intents",
+    "command": "",
+    "link": "https://github.com/aaif-goose/goose/tree/main/crates/goose-mcp/src/polymarket",
+    "installation_notes": "Built-in extension. Browser scrape needs Chrome/Chromium. Live orders require POLYMARKET_ENABLE_LIVE_ORDERS=1 and a pre-signed order from the official SDK.",
+    "is_builtin": true,
+    "endorsed": true,
+    "environmentVariables": [
+      {
+        "name": "POLYMARKET_ENABLE_LIVE_ORDERS",
+        "description": "Set to 1 to allow live order submission (default off; dry_run only)",
+        "required": false
+      },
+      {
+        "name": "POLYMARKET_API_KEY",
+        "description": "Optional CLOB L2 API key for authenticated order post",
+        "required": false
+      },
+      {
+        "name": "POLYMARKET_API_SECRET",
+        "description": "Optional CLOB L2 API secret",
+        "required": false
+      },
+      {
+        "name": "POLYMARKET_API_PASSPHRASE",
+        "description": "Optional CLOB L2 API passphrase",
+        "required": false
+      }
+    ]
+  },
+  {
     "id": "mongodb",
     "name": "MongoDB",
     "description": "MongoDB database integration",

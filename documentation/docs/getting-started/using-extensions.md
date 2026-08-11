@@ -24,6 +24,7 @@ goose includes several built-in extensions you can start using out of the box:
 - [Developer](/docs/mcp/developer-mcp): Provides a set of general development tools that are useful for software development. The Developer extension is **enabled by default**.
 - [Computer Controller](/docs/mcp/computer-controller-mcp): Provides general computer control tools for webscraping, file caching, and automations.
 - [Memory](/docs/mcp/memory-mcp): Teaches goose to remember your preferences as you use it.
+- [Polymarket](/docs/mcp/polymarket-mcp): Discover Polymarket markets via API and browser; analysis context and paper/live order intents.
 - [Tutorial](/docs/mcp/tutorial-mcp): Provides interactive tutorials for learning about goose.
 - [Auto Visualiser](/docs/mcp/autovisualiser-mcp): Automatically generates graphical data visualizations in conversations.
 

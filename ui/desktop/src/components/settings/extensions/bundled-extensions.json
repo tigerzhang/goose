@@ -44,6 +44,17 @@
     "bundled": true
   },
   {
+    "id": "polymarket",
+    "name": "polymarket",
+    "display_name": "Polymarket",
+    "description": "Discover Polymarket markets via API and browser; analysis context and paper/live order intents.",
+    "enabled": false,
+    "type": "builtin",
+    "env_keys": [],
+    "timeout": 300,
+    "bundled": true
+  },
+  {
     "id": "tutorial",
     "name": "tutorial",
     "display_name": "Tutorial",

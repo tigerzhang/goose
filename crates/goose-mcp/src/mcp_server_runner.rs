@@ -8,6 +8,7 @@ pub enum McpCommand {
     AutoVisualiser,
     ComputerController,
     Memory,
+    Polymarket,
     Tutorial,
 }
 
@@ -19,6 +20,7 @@ impl FromStr for McpCommand {
             "autovisualiser" => Ok(McpCommand::AutoVisualiser),
             "computercontroller" => Ok(McpCommand::ComputerController),
             "memory" => Ok(McpCommand::Memory),
+            "polymarket" => Ok(McpCommand::Polymarket),
             "tutorial" => Ok(McpCommand::Tutorial),
             _ => Err(format!("Invalid command: {}", s)),
         }
@@ -31,6 +33,7 @@ impl McpCommand {
             McpCommand::AutoVisualiser => "autovisualiser",
             McpCommand::ComputerController => "computercontroller",
             McpCommand::Memory => "memory",
+            McpCommand::Polymarket => "polymarket",
             McpCommand::Tutorial => "tutorial",
         }
     }

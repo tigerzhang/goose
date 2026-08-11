@@ -10,7 +10,9 @@ use goose::posthog::get_telemetry_choice;
 use goose::recipe::Recipe;
 use goose::source_roots::SourceRoot;
 use goose_mcp::mcp_server_runner::{serve, McpCommand};
-use goose_mcp::{AutoVisualiserRouter, ComputerControllerServer, MemoryServer, TutorialServer};
+use goose_mcp::{
+    AutoVisualiserRouter, ComputerControllerServer, MemoryServer, PolymarketServer, TutorialServer,
+};
 
 #[cfg(feature = "telemetry")]
 use crate::commands::configure::configure_telemetry_consent_dialog;
@@ -1372,6 +1374,7 @@ async fn handle_mcp_command(server: McpCommand) -> Result<()> {
         McpCommand::AutoVisualiser => serve(AutoVisualiserRouter::new()).await?,
         McpCommand::ComputerController => serve(ComputerControllerServer::new()).await?,
         McpCommand::Memory => serve(MemoryServer::new()).await?,
+        McpCommand::Polymarket => serve(PolymarketServer::new()).await?,
         McpCommand::Tutorial => serve(TutorialServer::new()).await?,
     }
     Ok(())

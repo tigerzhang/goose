@@ -1179,6 +1179,11 @@ fn configure_builtin_extension() -> anyhow::Result<()> {
             "Tools to save and retrieve durable memories",
         ),
         (
+            "polymarket",
+            "Polymarket",
+            "Polymarket markets via API and browser; analysis context and paper/live orders",
+        ),
+        (
             "tutorial",
             "Tutorial",
             "Access interactive tutorials and guides",

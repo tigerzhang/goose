@@ -36,6 +36,15 @@
     "timeout": 300
   },
   {
+    "id": "polymarket",
+    "name": "Polymarket",
+    "description": "Discover Polymarket markets via API and browser; analysis context and paper/live order intents.",
+    "enabled": false,
+    "type": "builtin",
+    "env_keys": [],
+    "timeout": 300
+  },
+  {
     "id": "tutorial",
     "name": "Tutorial",
     "description": "Access interactive tutorials and guides",
