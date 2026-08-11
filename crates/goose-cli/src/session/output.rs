@@ -1359,6 +1359,41 @@ pub fn display_session_info(
         style("   L L").white(),
         style("   goose is ready").white()
     );
+    display_startup_guide();
+}
+
+fn display_startup_guide() {
+    let newline_key = super::input::get_newline_key().to_ascii_uppercase();
+    println!();
+    println!("  {}  {}", style("·").dim(), style("inline commands").dim());
+    for (cmd, desc) in [
+        ("/help", "show all commands"),
+        ("/status", "model, provider, mode, tokens"),
+        ("/model [name]", "show or switch model"),
+        ("/mode <name>", "auto, approve, chat, …"),
+        ("/plan [msg]", "enter plan mode"),
+        ("/compact", "shrink conversation context"),
+        ("/skills", "list or enable skills"),
+        ("/clear", "clear chat history"),
+        ("/exit", "quit session"),
+    ] {
+        println!(
+            "  {}  {}  {}",
+            style(" ").dim(),
+            style(cmd).cyan(),
+            style(desc).dim()
+        );
+    }
+    println!(
+        "  {}  {}  {}",
+        style(" ").dim(),
+        style("Enter").cyan(),
+        style(format!(
+            "send · Ctrl+{newline_key} newline · Ctrl+C clear/exit"
+        ))
+        .dim()
+    );
+    println!();
 }
 
 fn set_terminal_title() {
