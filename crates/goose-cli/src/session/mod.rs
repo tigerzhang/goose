@@ -1032,6 +1032,8 @@ impl CliSession {
                     &Message::assistant().with_text(format!("Resumed session {label}.\n")),
                     self.debug,
                 );
+                // Replay the resumed conversation so the user can see context.
+                self.render_message_history();
                 Ok(())
             }
             Err(e) => {
@@ -1470,6 +1472,9 @@ impl CliSession {
                         })) => {
                             self.session_id = session_id;
                             self.messages = conversation;
+                            if interactive {
+                                self.render_message_history();
+                            }
                         }
                         Some(Err(e)) => {
                             handle_agent_error(&e, is_stream_json_mode);
