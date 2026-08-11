@@ -1,6 +1,6 @@
-use super::completion::GooseCompleter;
+use super::completion::{prompt_slash_command_tip_menu, GooseCompleter, SlashCommandMenuHandler};
 use super::paste::{
-    read_paste_aware_input, PasteAwareEnterHandler, PasteCaptureHandler, PasteState,
+    read_paste_aware_input_with_initial, PasteAwareEnterHandler, PasteCaptureHandler, PasteState,
 };
 use super::{CompletionCache, HintStatus};
 use anyhow::Result;
@@ -8,7 +8,7 @@ use goose::config::{Config, GooseMode};
 use rustyline::Editor;
 use shlex;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use strum::VariantNames;
 
 #[derive(Debug)]
@@ -147,76 +147,115 @@ pub fn get_input(
         .map(|h| h.completion_cache.clone())
         .ok_or_else(|| anyhow::anyhow!("Editor helper not set"))?;
 
-    let paste_state = Arc::new(std::sync::RwLock::new(PasteState::default()));
+    // Tab on slash-command names opens the tip menu after readline ends (raw mode
+    // must be released — same pattern as `/resume`). Menu selection only completes
+    // the line (prefill); Enter on the prompt runs the command.
+    let mut line_prefill: Option<String> = None;
+    loop {
+        let paste_state = Arc::new(std::sync::RwLock::new(PasteState::default()));
+        let pending_slash_menu = Arc::new(Mutex::new(None::<String>));
 
-    editor.bind_sequence(
-        rustyline::Event::Any,
-        rustyline::EventHandler::Conditional(Box::new(PasteCaptureHandler::new(
-            paste_state.clone(),
-        ))),
-    );
+        // Tab opens the navigable tip menu for slash command names.
+        editor.bind_sequence(
+            rustyline::KeyEvent(rustyline::KeyCode::Tab, rustyline::Modifiers::NONE),
+            rustyline::EventHandler::Conditional(Box::new(SlashCommandMenuHandler::new(
+                pending_slash_menu.clone(),
+            ))),
+        );
 
-    editor.bind_sequence(
-        rustyline::KeyEvent(rustyline::KeyCode::Enter, rustyline::Modifiers::NONE),
-        rustyline::EventHandler::Conditional(Box::new(PasteAwareEnterHandler::new(
-            paste_state.clone(),
-        ))),
-    );
+        editor.bind_sequence(
+            rustyline::Event::Any,
+            rustyline::EventHandler::Conditional(Box::new(PasteCaptureHandler::new(
+                paste_state.clone(),
+            ))),
+        );
 
-    editor.bind_sequence(
-        rustyline::KeyEvent(rustyline::KeyCode::Char('m'), rustyline::Modifiers::CTRL),
-        rustyline::EventHandler::Conditional(Box::new(PasteAwareEnterHandler::new(
-            paste_state.clone(),
-        ))),
-    );
+        editor.bind_sequence(
+            rustyline::KeyEvent(rustyline::KeyCode::Enter, rustyline::Modifiers::NONE),
+            rustyline::EventHandler::Conditional(Box::new(PasteAwareEnterHandler::new(
+                paste_state.clone(),
+            ))),
+        );
 
-    editor.bind_sequence(
-        rustyline::KeyEvent(
-            rustyline::KeyCode::Char(get_newline_key()),
-            rustyline::Modifiers::CTRL,
-        ),
-        rustyline::EventHandler::Simple(rustyline::Cmd::Newline),
-    );
+        editor.bind_sequence(
+            rustyline::KeyEvent(rustyline::KeyCode::Char('m'), rustyline::Modifiers::CTRL),
+            rustyline::EventHandler::Conditional(Box::new(PasteAwareEnterHandler::new(
+                paste_state.clone(),
+            ))),
+        );
 
-    editor.bind_sequence(
-        rustyline::KeyEvent(rustyline::KeyCode::Char('c'), rustyline::Modifiers::CTRL),
-        rustyline::EventHandler::Conditional(Box::new(CtrlCHandler::new(completion_cache))),
-    );
+        editor.bind_sequence(
+            rustyline::KeyEvent(
+                rustyline::KeyCode::Char(get_newline_key()),
+                rustyline::Modifiers::CTRL,
+            ),
+            rustyline::EventHandler::Simple(rustyline::Cmd::Newline),
+        );
 
-    let input = match read_paste_aware_input(editor, paste_state) {
-        Ok(text) => text,
-        Err(e) => match e {
-            rustyline::error::ReadlineError::Interrupted => return Ok(InputResult::Exit),
-            rustyline::error::ReadlineError::Eof => return Ok(InputResult::Exit),
-            _ => return Err(e.into()),
-        },
-    };
+        editor.bind_sequence(
+            rustyline::KeyEvent(rustyline::KeyCode::Char('c'), rustyline::Modifiers::CTRL),
+            rustyline::EventHandler::Conditional(Box::new(CtrlCHandler::new(
+                completion_cache.clone(),
+            ))),
+        );
 
-    // Add valid input to history (history saving to file is handled in the Session::interactive method)
-    if !input.trim().is_empty() {
-        editor.add_history_entry(input.as_str())?;
+        let initial = line_prefill.take();
+        let input =
+            match read_paste_aware_input_with_initial(editor, paste_state, initial.as_deref()) {
+                Ok(text) => text,
+                Err(e) => match e {
+                    rustyline::error::ReadlineError::Interrupted => return Ok(InputResult::Exit),
+                    rustyline::error::ReadlineError::Eof => return Ok(InputResult::Exit),
+                    _ => return Err(e.into()),
+                },
+            };
+
+        // Tab requested tip menu — complete only (do not execute).
+        if let Some(prefix) = pending_slash_menu.lock().ok().and_then(|mut g| g.take()) {
+            match prompt_slash_command_tip_menu(&prefix) {
+                Some(selected) => {
+                    // Prefill the prompt with the chosen command; user presses Enter to run.
+                    let mut prefill = selected;
+                    if !prefill.ends_with(' ') {
+                        prefill.push(' ');
+                    }
+                    line_prefill = Some(prefill);
+                    continue;
+                }
+                // Canceled — re-prompt without treating the line as a message.
+                None => continue,
+            }
+        }
+
+        if !input.trim().is_empty() {
+            editor.add_history_entry(input.as_str())?;
+        }
+
+        return Ok(dispatch_line(&input));
     }
+}
 
-    // Handle non-slash commands first
+/// Map a finished input line to an [`InputResult`] (slash commands + free text).
+fn dispatch_line(input: &str) -> InputResult {
     if !input.starts_with('/') {
         let trimmed = input.trim();
         if trimmed.is_empty()
             || trimmed.eq_ignore_ascii_case("exit")
             || trimmed.eq_ignore_ascii_case("quit")
         {
-            return Ok(if trimmed.is_empty() {
+            return if trimmed.is_empty() {
                 InputResult::Retry
             } else {
                 InputResult::Exit
-            });
+            };
         }
-        return Ok(InputResult::Message(trimmed.to_string()));
+        return InputResult::Message(trimmed.to_string());
     }
 
-    // Handle slash commands
-    match handle_slash_command(&input) {
-        Some(result) => Ok(result),
-        None => Ok(InputResult::Message(input.trim().to_string())),
+    // Enter runs the completed line; Tab only filled the buffer beforehand.
+    match handle_slash_command(input) {
+        Some(result) => result,
+        None => InputResult::Message(input.trim().to_string()),
     }
 }
 
@@ -483,6 +522,8 @@ fn help_text() -> String {
 
 Navigation:
 Enter - Send message
+Tab - Open slash-command tip menu to complete a command (Tab cycles; Enter in menu fills the line only)
+Enter - Run the current line (after Tab completion, press Enter again to execute)
 Ctrl+{newline_key} - Add a newline (configurable via GOOSE_CLI_NEWLINE_KEY)
 Ctrl+C - Clear current line if text is entered, otherwise exit the session
 Up/Down arrows - Navigate through command history"
@@ -631,6 +672,11 @@ mod tests {
                 command.name
             );
         }
+
+        assert!(
+            help.contains("Tab - Open slash-command tip menu to complete a command"),
+            "help Navigation should mention Tab completes via tip menu"
+        );
     }
 
     #[test]

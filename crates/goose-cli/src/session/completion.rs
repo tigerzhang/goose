@@ -4,12 +4,238 @@ use rustyline::completion::{Completer, FilenameCompleter, Pair};
 use rustyline::highlight::{CmdKind, Highlighter};
 use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
-use rustyline::{Context, Helper, Result};
+use rustyline::{Cmd, ConditionalEventHandler, Context, Event, EventContext, Helper, Result};
 use std::borrow::Cow;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use strum::VariantNames;
 
 use super::{CompletionCache, HintStatus};
+
+/// CLI-local slash commands (name + tip-menu description), not in `list_commands()`.
+const CLI_SLASH_COMMANDS: &[(&str, &str)] = &[
+    ("/exit", "quit session"),
+    ("/quit", "quit session"),
+    ("/help", "show all commands"),
+    ("/?", "show all commands"),
+    ("/t", "toggle theme"),
+    ("/r", "toggle full tool output"),
+    ("/extension", "add a stdio extension"),
+    ("/builtin", "add builtin extensions by name"),
+    ("/mode", "set goose mode (auto, approve, chat, …)"),
+    ("/model", "show or switch model"),
+    ("/plan", "enter plan mode"),
+    ("/endplan", "exit plan mode"),
+    ("/recipe", "save conversation as a recipe"),
+    ("/edit", "open prompt editor"),
+];
+
+/// Splash-guide order: shown first in the tip menu.
+const SPLASH_SLASH_ORDER: &[&str] = &[
+    "/help", "/status", "/model", "/mode", "/plan", "/compact", "/skills", "/clear", "/exit",
+];
+
+/// All slash-command entries (name with leading `/`, description) for autocomplete / tip menu.
+pub(crate) fn slash_command_entries() -> Vec<(String, String)> {
+    let mut commands: Vec<(String, String)> = CLI_SLASH_COMMANDS
+        .iter()
+        .map(|(name, desc)| ((*name).to_string(), (*desc).to_string()))
+        .collect();
+    for command in list_commands() {
+        let name = format!("/{}", command.name);
+        if !commands.iter().any(|(n, _)| n == &name) {
+            commands.push((name, command.description.to_string()));
+        }
+    }
+    commands.sort_by(|a, b| {
+        let rank = |name: &str| {
+            SPLASH_SLASH_ORDER
+                .iter()
+                .position(|s| *s == name)
+                .unwrap_or(usize::MAX)
+        };
+        rank(&a.0).cmp(&rank(&b.0)).then_with(|| a.0.cmp(&b.0))
+    });
+    commands
+}
+
+/// Slash commands whose name starts with `prefix` (e.g. `/`, `/pl`, `/ex`).
+pub(crate) fn matching_slash_commands(prefix: &str) -> Vec<(String, String)> {
+    slash_command_entries()
+        .into_iter()
+        .filter(|(name, _)| name.starts_with(prefix))
+        .collect()
+}
+
+/// True while the line is still naming a slash command (no args yet).
+pub(crate) fn is_slash_command_name_input(line: &str, pos: usize) -> bool {
+    if pos < line.len() {
+        return false;
+    }
+    let trimmed = line.trim_end();
+    if trimmed.is_empty() {
+        // Empty prompt: Tab opens the full command menu.
+        return true;
+    }
+    trimmed.starts_with('/') && !trimmed[1..].contains(' ') && !trimmed[1..].contains('\t')
+}
+
+/// Advance (or reverse) a menu cursor with wrap-around. Pure helper for tests + UI.
+pub(crate) fn cycle_menu_index(len: usize, idx: usize, forward: bool) -> usize {
+    if len == 0 {
+        return 0;
+    }
+    let idx = idx.min(len - 1);
+    if forward {
+        (idx + 1) % len
+    } else if idx == 0 {
+        len - 1
+    } else {
+        idx - 1
+    }
+}
+
+/// Interactive tip menu for slash commands matching `prefix`.
+///
+/// Must run **outside** rustyline raw mode (after readline returns). Nested
+/// menus during Tab mid-line fail because rustyline holds raw mode.
+///
+/// Keys inside the menu:
+/// - **Tab** / ↓ / j — next option (wrap)
+/// - **Shift+Tab** / ↑ / k — previous option
+/// - **Enter** — confirm selection into the input line (**does not execute**)
+/// - **Esc** — cancel
+///
+/// Returns the chosen command name (e.g. `"/help"`), or `None` if canceled / no matches.
+/// The caller must only complete the prompt with this value — not run the command until
+/// the user presses Enter on the main prompt.
+pub(crate) fn prompt_slash_command_tip_menu(prefix: &str) -> Option<String> {
+    let prefix = if prefix.is_empty() { "/" } else { prefix };
+    let matching = matching_slash_commands(prefix);
+    if matching.is_empty() {
+        return None;
+    }
+    if matching.len() == 1 {
+        return Some(matching[0].0.clone());
+    }
+
+    run_slash_tip_menu(&matching)
+}
+
+/// Render and drive the tip menu. Stock `cliclack::select` ignores Tab, so this
+/// uses `console::Term` with Tab-to-cycle semantics.
+fn run_slash_tip_menu(items: &[(String, String)]) -> Option<String> {
+    use console::{style, Key, Term};
+    use std::io::Write;
+
+    let mut term = Term::stderr();
+    if !term.is_term() {
+        return None;
+    }
+
+    let n = items.len();
+    let mut cursor = 0usize;
+    let header = "Slash commands (Tab cycle, Enter complete, Esc cancel):";
+    // header + blank + n rows
+    let frame_lines = n + 2;
+    let mut first_frame = true;
+
+    loop {
+        if !first_frame {
+            let _ = term.clear_last_lines(frame_lines);
+        }
+        first_frame = false;
+
+        let mut frame = String::new();
+        frame.push_str(&format!("{}\n\n", style(header).dim()));
+        let name_width = items
+            .iter()
+            .map(|(name, _)| name.chars().count())
+            .max()
+            .unwrap_or(0);
+        for (i, (name, desc)) in items.iter().enumerate() {
+            if i == cursor {
+                frame.push_str(&format!(
+                    "  {} {:name_width$}  {}\n",
+                    style("›").cyan().bold(),
+                    style(name.as_str()).cyan().bold(),
+                    style(desc.as_str()).white(),
+                ));
+            } else {
+                frame.push_str(&format!(
+                    "    {:name_width$}  {}\n",
+                    style(name.as_str()).dim(),
+                    style(desc.as_str()).dim(),
+                ));
+            }
+        }
+        let _ = term.write_all(frame.as_bytes());
+        let _ = term.flush();
+
+        let key = match term.read_key() {
+            Ok(k) => k,
+            Err(_) => {
+                let _ = term.clear_last_lines(frame_lines);
+                return None;
+            }
+        };
+
+        match key {
+            Key::Tab | Key::ArrowDown | Key::Char('j') | Key::Char('l') => {
+                cursor = cycle_menu_index(n, cursor, true);
+            }
+            Key::BackTab | Key::ArrowUp | Key::Char('k') | Key::Char('h') => {
+                cursor = cycle_menu_index(n, cursor, false);
+            }
+            Key::Enter => {
+                let _ = term.clear_last_lines(frame_lines);
+                return Some(items[cursor].0.clone());
+            }
+            Key::Escape => {
+                let _ = term.clear_last_lines(frame_lines);
+                return None;
+            }
+            // Ignore other keys (including printable) so typing doesn't glitch the menu.
+            _ => {}
+        }
+    }
+}
+
+/// Tab: end readline and request the slash-command tip menu.
+///
+/// Must not open the menu mid-readline (raw mode). The menu runs in
+/// [`crate::session::input::get_input`] after AcceptLine releases the terminal.
+pub(crate) struct SlashCommandMenuHandler {
+    pub(crate) pending_prefix: Arc<Mutex<Option<String>>>,
+}
+
+impl SlashCommandMenuHandler {
+    pub(crate) fn new(pending_prefix: Arc<Mutex<Option<String>>>) -> Self {
+        Self { pending_prefix }
+    }
+}
+
+impl ConditionalEventHandler for SlashCommandMenuHandler {
+    fn handle(&self, _evt: &Event, _n: u16, _positive: bool, ctx: &EventContext) -> Option<Cmd> {
+        let line = ctx.line();
+        let pos = ctx.pos();
+        if !is_slash_command_name_input(line, pos) {
+            return None;
+        }
+
+        let prefix = {
+            let t = line.trim_end();
+            if t.is_empty() {
+                "/".to_string()
+            } else {
+                t.to_string()
+            }
+        };
+        if let Ok(mut guard) = self.pending_prefix.lock() {
+            *guard = Some(prefix);
+        }
+        Some(Cmd::AcceptLine)
+    }
+}
 
 /// Completer for goose CLI commands
 pub struct GooseCompleter {
@@ -221,44 +447,46 @@ impl GooseCompleter {
         Ok((pos, candidates))
     }
 
-    /// Complete slash commands
+    /// Complete slash commands via Tab circular completion.
+    ///
+    /// First Tab inserts the first match; each further Tab cycles to the next.
+    /// Enter is not involved — the user presses Enter later to run the line.
     fn complete_slash_commands(&self, line: &str) -> Result<(usize, Vec<Pair>)> {
-        let mut commands = vec![
-            "/exit".to_string(),
-            "/quit".to_string(),
-            "/help".to_string(),
-            "/?".to_string(),
-            "/t".to_string(),
-            "/extension".to_string(),
-            "/builtin".to_string(),
-            "/mode".to_string(),
-            "/model".to_string(),
-            "/recipe".to_string(),
-        ];
-        commands.extend(
-            list_commands()
-                .iter()
-                .map(|command| format!("/{}", command.name)),
-        );
-        commands.sort();
-        commands.dedup();
+        let prefix = line.trim_end();
+        let matching = matching_slash_commands(prefix);
 
-        // Find commands that match the prefix
-        let matching_commands: Vec<Pair> = commands
+        if matching.is_empty() {
+            return Ok((line.len(), vec![]));
+        }
+
+        // Exact full command already on the line (e.g. after a prior Tab): rotate
+        // so the *next* Tab advances to the following command in the full list.
+        let matching = if matching.len() == 1 && matching[0].0 == prefix {
+            let all = slash_command_entries();
+            if let Some(idx) = all.iter().position(|(n, _)| n == prefix) {
+                let mut rotated = Vec::with_capacity(all.len());
+                rotated.extend_from_slice(&all[idx + 1..]);
+                rotated.extend_from_slice(&all[..=idx]);
+                rotated
+            } else {
+                matching
+            }
+        } else {
+            matching
+        };
+
+        // `replacement` is what circular Tab writes into the line (trailing space
+        // so arg-taking commands are ready to type).
+        let matching_commands: Vec<Pair> = matching
             .iter()
-            .filter(|cmd| cmd.starts_with(line))
-            .map(|cmd| Pair {
-                display: cmd.to_string(),
-                replacement: format!("{} ", cmd), // Add a space after the command
+            .map(|(name, desc)| Pair {
+                display: format!("{name}  {desc}"),
+                replacement: format!("{name} "),
             })
             .collect();
 
-        if !matching_commands.is_empty() {
-            return Ok((0, matching_commands));
-        }
-
-        // No command completions available
-        Ok((line.len(), vec![]))
+        // Position 0: replace from the leading `/` of the command.
+        Ok((0, matching_commands))
     }
 
     /// Complete argument keys for a specific prompt
@@ -516,6 +744,27 @@ impl Hinter for GooseCompleter {
             return None;
         }
 
+        // While typing a slash command name, show which Tab will cycle to next.
+        if line.starts_with('/') && !line[1..].contains(' ') {
+            let matches = matching_slash_commands(line);
+            if matches.is_empty() {
+                return None;
+            }
+            let current = line.trim_end();
+            // Exact full command after a Tab complete: cycle among all commands.
+            let cycle = if matches.len() == 1 && matches[0].0 == current {
+                slash_command_entries()
+            } else {
+                matches
+            };
+            let idx = cycle.iter().position(|(n, _)| n == current);
+            let next = match idx {
+                Some(i) => &cycle[(i + 1) % cycle.len()].0,
+                None => &cycle[0].0,
+            };
+            return Some(format!(" Tab · complete via menu ({next}…)"));
+        }
+
         if !line.is_empty() {
             return None;
         }
@@ -529,7 +778,9 @@ impl Hinter for GooseCompleter {
             }
             HintStatus::Default => {
                 let newline_key = super::input::get_newline_key().to_ascii_uppercase();
-                Some(format!("Enter to send · Ctrl+{newline_key} newline"))
+                Some(format!(
+                    "Enter to send · Tab complete /commands · Ctrl+{newline_key} newline"
+                ))
             }
         }
     }
@@ -548,6 +799,28 @@ impl Highlighter for GooseCompleter {
         // Style the hint text with a dim color
         let styled = console::Style::new().dim().apply_to(hint).to_string();
         Cow::Owned(styled)
+    }
+
+    fn highlight_candidate<'c>(
+        &self,
+        candidate: &'c str,
+        completion: rustyline::config::CompletionType,
+    ) -> Cow<'c, str> {
+        if completion != rustyline::config::CompletionType::List {
+            return Cow::Borrowed(candidate);
+        }
+        // Tip-menu rows are "{name}  {description}" — cyan name, dim description.
+        if let Some((name, rest)) = candidate.split_once("  ") {
+            if name.starts_with('/') {
+                let styled = format!(
+                    "{}{}",
+                    console::Style::new().cyan().apply_to(name),
+                    console::Style::new().dim().apply_to(format!("  {rest}"))
+                );
+                return Cow::Owned(styled);
+            }
+        }
+        Cow::Borrowed(candidate)
     }
 
     fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
@@ -633,41 +906,287 @@ mod tests {
         Arc::new(RwLock::new(cache))
     }
 
+    /// Commands shown on the session startup splash/guide (`display_startup_guide`).
+    const SPLASH_SLASH_COMMANDS: &[&str] = &[
+        "/help", "/status", "/model", "/mode", "/plan", "/compact", "/skills", "/clear", "/exit",
+    ];
+
+    /// Other session slash commands handled by the CLI (beyond agent `list_commands()`).
+    const CLI_LOCAL_SLASH_COMMANDS: &[&str] = &[
+        "/quit",
+        "/t",
+        "/r",
+        "/extension",
+        "/builtin",
+        "/recipe",
+        "/prompts",
+        "/prompt",
+        "/resume",
+        "/endplan",
+        "/edit",
+        "/?",
+    ];
+
+    fn candidate_names(candidates: &[Pair]) -> Vec<&str> {
+        candidates
+            .iter()
+            .map(|c| c.replacement.trim_end())
+            .collect()
+    }
+
+    fn has_cmd(candidates: &[Pair], cmd: &str) -> bool {
+        candidates.iter().any(|c| c.replacement.trim_end() == cmd)
+    }
+
     #[test]
     fn test_complete_slash_commands() {
         let cache = create_test_cache();
         let completer = GooseCompleter::new(cache);
 
-        // Test complete match
+        // Exact full command: Tab advances to the *next* command (circular list).
         let (pos, candidates) = completer.complete_slash_commands("/exit").unwrap();
         assert_eq!(pos, 0);
-        assert_eq!(candidates.len(), 1);
-        assert_eq!(candidates[0].display, "/exit");
-        assert_eq!(candidates[0].replacement, "/exit ");
+        assert!(
+            candidates.len() > 1,
+            "exact match should still offer the full cycle list"
+        );
+        // /exit is last in splash order; next wraps into the remaining commands.
+        assert_ne!(
+            candidates[0].replacement.trim_end(),
+            "/exit",
+            "first Tab on an exact command should move to a different candidate"
+        );
+        assert!(
+            candidates
+                .iter()
+                .any(|c| c.replacement.trim_end() == "/exit"),
+            "cycle list still includes /exit"
+        );
 
-        // Test partial match
-        let (pos, candidates) = completer.complete_slash_commands("/e").unwrap();
+        // Test partial match: /ex → /exit and /extension
+        let (pos, candidates) = completer.complete_slash_commands("/ex").unwrap();
         assert_eq!(pos, 0);
-        // There might be multiple commands starting with "e" like "/exit" and "/extension"
-        assert!(!candidates.is_empty());
+        let names = candidate_names(&candidates);
+        assert!(names.contains(&"/exit"), "got {names:?}");
+        assert!(names.contains(&"/extension"), "got {names:?}");
+        assert!(
+            names.iter().all(|n| n.starts_with("/ex")),
+            "all candidates must match prefix, got {names:?}"
+        );
 
-        // Test multiple matches
+        // Partial match: /pl → /plan
+        let (pos, candidates) = completer.complete_slash_commands("/pl").unwrap();
+        assert_eq!(pos, 0);
+        assert!(
+            has_cmd(&candidates, "/plan"),
+            "partial /pl should yield /plan, got {:?}",
+            candidate_names(&candidates)
+        );
+        assert!(
+            candidates
+                .iter()
+                .any(|c| c.replacement.trim_end() == "/plan" && c.display.contains("plan")),
+            "tip menu for /plan should include a description"
+        );
+
+        // All candidates under `/` include splash + agent + CLI-local commands
         let (pos, candidates) = completer.complete_slash_commands("/").unwrap();
         assert_eq!(pos, 0);
         assert!(candidates.len() > 1);
-        for command in list_commands() {
+        // Completions replace from the start of the command (leading `/`).
+        assert!(candidates.iter().all(|c| c.replacement.starts_with('/')));
+        // Tip menu rows always include a description column.
+        assert!(
+            candidates
+                .iter()
+                .all(|c| c.display.contains("  ") && c.display.starts_with('/')),
+            "every tip-menu row should be \"name  description\""
+        );
+
+        for cmd in SPLASH_SLASH_COMMANDS {
             assert!(
-                candidates
-                    .iter()
-                    .any(|candidate| candidate.display == format!("/{}", command.name)),
-                "slash completion should list /{}",
-                command.name
+                has_cmd(&candidates, cmd),
+                "splash command {cmd} missing from completer under `/`"
+            );
+        }
+        for command in list_commands() {
+            let name = format!("/{}", command.name);
+            assert!(
+                has_cmd(&candidates, &name),
+                "slash completion should list {name}"
+            );
+            // Agent command descriptions appear in the tip menu.
+            assert!(
+                candidates.iter().any(|c| {
+                    c.replacement.trim_end() == name && c.display.contains(command.description)
+                }),
+                "tip menu for {name} should show agent description"
+            );
+        }
+        for cmd in CLI_LOCAL_SLASH_COMMANDS {
+            assert!(
+                has_cmd(&candidates, cmd),
+                "CLI-local command {cmd} missing from completer under `/`"
             );
         }
 
         // Test no match
         let (_pos, candidates) = completer.complete_slash_commands("/nonexistent").unwrap();
         assert_eq!(candidates.len(), 0);
+    }
+
+    #[test]
+    fn test_completer_complete_slash_prefix() {
+        use rustyline::completion::Completer;
+        use rustyline::history::DefaultHistory;
+        use rustyline::Context;
+
+        let cache = create_test_cache();
+        let completer = GooseCompleter::new(cache);
+        let history = DefaultHistory::new();
+        let ctx = Context::new(&history);
+
+        let line = "/";
+        let (pos, candidates) = Completer::complete(&completer, line, line.len(), &ctx).unwrap();
+        assert_eq!(pos, 0);
+        assert!(
+            !candidates.is_empty(),
+            "Completer::complete(\"/\") must yield slash-command candidates"
+        );
+        for cmd in SPLASH_SLASH_COMMANDS {
+            assert!(
+                has_cmd(&candidates, cmd),
+                "Completer::complete path missing splash command {cmd}"
+            );
+        }
+
+        // Prefix filtering via the public complete entry point
+        let line = "/pl";
+        let (pos, candidates) = Completer::complete(&completer, line, line.len(), &ctx).unwrap();
+        assert_eq!(pos, 0);
+        assert!(
+            has_cmd(&candidates, "/plan"),
+            "Completer::complete(\"/pl\") should include /plan"
+        );
+
+        let line = "/zzznomatch";
+        let (_pos, candidates) = Completer::complete(&completer, line, line.len(), &ctx).unwrap();
+        assert!(
+            candidates.is_empty(),
+            "unknown prefix should yield no slash-command candidates"
+        );
+    }
+
+    #[test]
+    fn test_tab_cycles_slash_command_order() {
+        // First Tab on `/` should offer splash commands first (circular order).
+        let all = matching_slash_commands("/");
+        assert!(all.len() > 5);
+        for cmd in SPLASH_SLASH_COMMANDS {
+            assert!(
+                all.iter().any(|(n, _)| n == cmd),
+                "cycle list missing splash command {cmd}"
+            );
+        }
+        // Splash order: first match for bare `/` is /help.
+        assert_eq!(
+            all[0].0, "/help",
+            "first Tab on `/` should complete to /help"
+        );
+
+        let cache = create_test_cache();
+        let completer = GooseCompleter::new(cache);
+        let (pos, candidates) = completer.complete_slash_commands("/").unwrap();
+        assert_eq!(pos, 0);
+        assert_eq!(
+            candidates[0].replacement, "/help ",
+            "circular Tab writes first candidate into the line"
+        );
+        assert_eq!(
+            candidates[1].replacement.trim_end(),
+            "/status",
+            "second Tab cycles to the next candidate"
+        );
+
+        // Partial prefix: /ex → /exit then /extension
+        let (pos, candidates) = completer.complete_slash_commands("/ex").unwrap();
+        assert_eq!(pos, 0);
+        let names = candidate_names(&candidates);
+        assert!(names.len() >= 2, "got {names:?}");
+        assert!(names.iter().all(|n| n.starts_with("/ex")));
+
+        let none = matching_slash_commands("/zzznomatch");
+        assert!(none.is_empty());
+    }
+
+    #[test]
+    fn test_session_editor_uses_circular_completion() {
+        // Drive the real config builder used by CliSession::create_editor.
+        let config = crate::session::session_editor_config(None);
+        assert_eq!(
+            config.completion_type(),
+            rustyline::CompletionType::Circular,
+            "Tab should cycle completions without executing"
+        );
+    }
+
+    #[test]
+    fn test_slash_command_completion_hint() {
+        use rustyline::hint::Hinter;
+        use rustyline::history::DefaultHistory;
+        use rustyline::Context;
+
+        let cache = create_test_cache();
+        let completer = GooseCompleter::new(cache);
+        let history = DefaultHistory::new();
+        let ctx = Context::new(&history);
+
+        let empty = completer.hint("", 0, &ctx).expect("empty-line hint");
+        assert!(
+            empty.contains("Tab complete") || empty.contains("/commands"),
+            "default empty-line hint should mention Tab complete: {empty}"
+        );
+
+        let slash = completer.hint("/", 1, &ctx).expect("slash hint");
+        assert!(
+            slash.contains("Tab") && slash.contains("complete"),
+            "typing / should hint Tab complete via menu: {slash}"
+        );
+
+        let partial = completer.hint("/pl", 3, &ctx).expect("partial slash hint");
+        assert!(
+            partial.contains("Tab") && partial.contains("/plan"),
+            "partial /pl should mention menu and /plan: {partial}"
+        );
+
+        // After a space, argument completion applies — no command-name tip.
+        assert!(completer.hint("/plan ", 6, &ctx).is_none());
+        assert!(completer.hint("hello", 5, &ctx).is_none());
+    }
+
+    #[test]
+    fn test_slash_menu_helpers() {
+        assert!(is_slash_command_name_input("", 0));
+        assert!(is_slash_command_name_input("/", 1));
+        assert!(is_slash_command_name_input("/pl", 3));
+        assert!(!is_slash_command_name_input("/plan hello", 11));
+        assert!(!is_slash_command_name_input("hello", 5));
+
+        // Unique match skips interactive select.
+        assert_eq!(
+            prompt_slash_command_tip_menu("/exit"),
+            Some("/exit".to_string())
+        );
+        assert!(prompt_slash_command_tip_menu("/zzznomatch").is_none());
+
+        // Tab cycles forward with wrap; Shift+Tab reverse with wrap.
+        assert_eq!(cycle_menu_index(3, 0, true), 1);
+        assert_eq!(cycle_menu_index(3, 1, true), 2);
+        assert_eq!(cycle_menu_index(3, 2, true), 0);
+        assert_eq!(cycle_menu_index(3, 0, false), 2);
+        assert_eq!(cycle_menu_index(3, 2, false), 1);
+        assert_eq!(cycle_menu_index(1, 0, true), 0);
+        assert_eq!(cycle_menu_index(0, 0, true), 0);
     }
 
     #[test]

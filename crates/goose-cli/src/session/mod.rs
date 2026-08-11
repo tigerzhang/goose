@@ -589,13 +589,7 @@ impl CliSession {
     fn create_editor(
         &self,
     ) -> Result<rustyline::Editor<GooseCompleter, rustyline::history::DefaultHistory>> {
-        let builder =
-            rustyline::Config::builder().completion_type(rustyline::CompletionType::Circular);
-        let builder = match self.edit_mode {
-            Some(mode) => builder.edit_mode(mode),
-            None => builder.edit_mode(EditMode::Emacs),
-        };
-        let config = builder.build();
+        let config = session_editor_config(self.edit_mode);
         let mut editor =
             rustyline::Editor::<GooseCompleter, rustyline::history::DefaultHistory>::with_config(
                 config,
@@ -1927,6 +1921,20 @@ impl CliSession {
     fn push_message(&mut self, message: Message) {
         self.messages.push(message);
     }
+}
+
+/// rustyline config for the interactive session editor.
+///
+/// Uses [`rustyline::CompletionType::Circular`] so Tab cycles slash-command
+/// candidates in place (1st match, 2nd match, …). Enter is only used to run
+/// the line — never to select a completion.
+pub(crate) fn session_editor_config(edit_mode: Option<EditMode>) -> rustyline::Config {
+    let builder = rustyline::Config::builder().completion_type(rustyline::CompletionType::Circular);
+    let builder = match edit_mode {
+        Some(mode) => builder.edit_mode(mode),
+        None => builder.edit_mode(EditMode::Emacs),
+    };
+    builder.build()
 }
 
 fn message_has_text(message: &Message) -> bool {

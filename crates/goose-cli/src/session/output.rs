@@ -1387,6 +1387,12 @@ fn display_startup_guide() {
     println!(
         "  {}  {}  {}",
         style(" ").dim(),
+        style("Tab").cyan(),
+        style("complete /command (menu) · Enter to run").dim()
+    );
+    println!(
+        "  {}  {}  {}",
+        style(" ").dim(),
         style("Enter").cyan(),
         style(format!(
             "send · Ctrl+{newline_key} newline · Ctrl+C clear/exit"

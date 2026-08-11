@@ -365,7 +365,19 @@ pub(super) fn read_paste_aware_input(
     editor: &mut Editor<GooseCompleter, rustyline::history::DefaultHistory>,
     paste_state: Arc<std::sync::RwLock<PasteState>>,
 ) -> rustyline::Result<String> {
-    let input = editor.readline("> ")?;
+    read_paste_aware_input_with_initial(editor, paste_state, None)
+}
+
+/// Like [`read_paste_aware_input`], optionally prefilling the line (left of cursor).
+pub(super) fn read_paste_aware_input_with_initial(
+    editor: &mut Editor<GooseCompleter, rustyline::history::DefaultHistory>,
+    paste_state: Arc<std::sync::RwLock<PasteState>>,
+    initial: Option<&str>,
+) -> rustyline::Result<String> {
+    let input = match initial {
+        Some(left) if !left.is_empty() => editor.readline_with_initial("> ", (left, ""))?,
+        _ => editor.readline("> ")?,
+    };
     let expanded = paste_state
         .read()
         .ok()
