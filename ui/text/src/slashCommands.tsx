@@ -81,7 +81,7 @@ export const STARTUP_GUIDE_KEYS: ReadonlyArray<{
   desc: string;
 }> = [
   { key: "Enter", desc: "send · Ctrl+Enter newline · Esc/Ctrl+C exit" },
-  { key: "Tab", desc: "complete /command · ↑↓ pick suggestion" },
+  { key: "Tab", desc: "cycle /command · Shift+Tab back · ↑↓ pick" },
   { key: "Ctrl+P", desc: "provider · Ctrl+M model · Ctrl+E extensions" },
 ];
 
@@ -141,12 +141,15 @@ export function formatHelpMessage(): string {
     "Recipe and skill slash commands are also supported when configured.",
     "",
     "Autocomplete:",
-    "  Type / then Tab or ↑↓ to complete a command name.",
+    "  Type / then Tab to cycle matches (Shift+Tab reverse).",
+    "  Unique match is completed with a trailing space.",
+    "  ↑↓ also moves the highlight.",
     "",
     "Navigation:",
     "  Enter            Send message",
     "  Ctrl+Enter       Newline",
-    "  Tab              Complete /command",
+    "  Tab              Cycle / complete /command",
+    "  Shift+Tab        Previous completion",
     "  Ctrl+P / Ctrl+M  Provider / model",
     "  Ctrl+E           Extensions",
     "  ↑↓ / ⌥↑↓         Scroll / fast scroll",

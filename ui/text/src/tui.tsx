@@ -103,7 +103,9 @@ const InputBar = React.memo(function InputBar({
   suggestions,
   selectedSuggestion,
   onSelectSuggestion,
-  onApplySuggestion,
+  onTabSuggestion,
+  /** Bump to remount the text input so the cursor jumps to the end. */
+  inputCursorKey = 0,
 }: {
   width: number;
   input: string;
@@ -118,7 +120,9 @@ const InputBar = React.memo(function InputBar({
   suggestions: SlashSuggestion[];
   selectedSuggestion: number;
   onSelectSuggestion: (index: number) => void;
-  onApplySuggestion: (suggestion: SlashSuggestion) => void;
+  /** Tab / Shift+Tab: cycle or complete the current slash suggestion. */
+  onTabSuggestion: (shift: boolean) => void;
+  inputCursorKey?: number;
 }) {
   const prevLenRef = useRef(input.length);
   const hasSuggestions = suggestions.length > 0;
@@ -177,17 +181,13 @@ const InputBar = React.memo(function InputBar({
   );
 
   // Slash-command autocomplete keys (Tab / arrows) when suggestions are open.
-  // Enter always submits the current text — only Tab completes.
+  // Enter always submits the current text — Tab cycles/completes.
   useInput(
     (_ch, key) => {
       if (!hasSuggestions) return;
 
       if (key.tab) {
-        const pick =
-          visibleSuggestions[
-            Math.min(selectedSuggestion, visibleSuggestions.length - 1)
-          ];
-        if (pick) onApplySuggestion(pick);
+        onTabSuggestion(Boolean(key.shift));
         return;
       }
       if (key.upArrow && !key.shift && !key.meta) {
@@ -258,6 +258,10 @@ const InputBar = React.memo(function InputBar({
         ) : (
           <Box flexGrow={1} justifyContent="space-between">
             <MultilineInput
+              // Remount after programmatic completion so cursor starts at end.
+              // ink-multiline-input only clamps cursor when value shrinks, so
+              // external setValue leaves the caret mid-string otherwise.
+              key={inputCursorKey}
               value={input}
               onChange={handleChange}
               onSubmit={handleSubmit}
@@ -321,7 +325,7 @@ const InputBar = React.memo(function InputBar({
             );
           })}
           <Text color={TEXT_DIM} italic>
-            tab complete · ↑↓ select
+            tab cycle · shift+tab back · ↑↓ select
             {suggestions.length > SLASH_AUTOCOMPLETE_MAX
               ? ` · ${suggestions.length - SLASH_AUTOCOMPLETE_MAX} more`
               : ""}
@@ -681,6 +685,12 @@ function App({
   const [scrollOffset, setScrollOffset] = useState(0);
   const [pastedFull, setPastedFull] = useState<string | null>(null);
   const [slashSuggestionIdx, setSlashSuggestionIdx] = useState(0);
+  // While Tab-cycling, keep matching against the original typed prefix so the
+  // suggestion list does not collapse when the input is filled with a candidate.
+  const [slashCyclePrefix, setSlashCyclePrefix] = useState<string | null>(null);
+  // Remount MultilineInput after autocomplete so the caret sits at the end
+  // (ready for command arguments).
+  const [inputCursorKey, setInputCursorKey] = useState(0);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   type Overlay =
     | { screen: "configure"; intent: ConfigureIntent }
@@ -688,10 +698,16 @@ function App({
     | { screen: "diff"; content: string; truncated: boolean };
   const [overlay, setOverlay] = useState<Overlay | null>(null);
 
-  const slashSuggestions = useMemo(() => matchSlashCommands(input), [input]);
+  const slashSuggestions = useMemo(
+    () => matchSlashCommands(slashCyclePrefix ?? input),
+    [input, slashCyclePrefix],
+  );
   useEffect(() => {
-    setSlashSuggestionIdx(0);
-  }, [input]);
+    // Don't reset the highlight while Tab is cycling through matches.
+    if (slashCyclePrefix === null) {
+      setSlashSuggestionIdx(0);
+    }
+  }, [input, slashCyclePrefix]);
 
   const clientRef = useRef<GooseClient | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -1138,6 +1154,7 @@ function App({
       if (!trimmed) return;
       setInput("");
       setPastedFull(null);
+      setSlashCyclePrefix(null);
       setSlashSuggestionIdx(0);
       setViewTurnIdx(-1);
       setSelectedToolCallIdx(null);
@@ -1160,10 +1177,84 @@ function App({
     [loading, sendPrompt, runSlashCommand],
   );
 
-  const applySlashSuggestion = useCallback((suggestion: SlashSuggestion) => {
-    setInput(suggestion.completion);
-    setSlashSuggestionIdx(0);
+  const handleInputChange = useCallback((value: string) => {
+    setSlashCyclePrefix(null);
+    setInput(value);
   }, []);
+
+  /** Replace input from autocomplete and place the caret after the text. */
+  const setInputFromAutocomplete = useCallback((value: string) => {
+    setInput(value);
+    setInputCursorKey((k) => k + 1);
+  }, []);
+
+  const applySlashSuggestion = useCallback(
+    (suggestion: SlashSuggestion) => {
+      setSlashCyclePrefix(null);
+      // completion includes a trailing space so arguments can be typed next.
+      setInputFromAutocomplete(suggestion.completion);
+      setSlashSuggestionIdx(0);
+    },
+    [setInputFromAutocomplete],
+  );
+
+  /**
+   * Tab / Shift+Tab slash completion:
+   * - unique match → insert full command with trailing space, caret at end
+   * - multiple matches → cycle selection; fill `/${name} ` so args are ready
+   *   (list stays open via slashCyclePrefix)
+   */
+  const handleTabSuggestion = useCallback(
+    (shift: boolean) => {
+      const source = slashCyclePrefix ?? input;
+      const matches = matchSlashCommands(source);
+      const visible = matches.slice(0, SLASH_AUTOCOMPLETE_MAX);
+      if (visible.length === 0) return;
+
+      if (visible.length === 1) {
+        applySlashSuggestion(visible[0]);
+        return;
+      }
+
+      const n = visible.length;
+      let nextIdx: number;
+      if (slashCyclePrefix === null) {
+        // First Tab: lock the typed prefix and accept the current highlight.
+        // Shift+Tab starts on the previous item.
+        setSlashCyclePrefix(source);
+        nextIdx = shift
+          ? (Math.min(slashSuggestionIdx, n - 1) - 1 + n) % n
+          : Math.min(slashSuggestionIdx, n - 1);
+      } else {
+        nextIdx = shift
+          ? (slashSuggestionIdx - 1 + n) % n
+          : (slashSuggestionIdx + 1) % n;
+      }
+
+      setSlashSuggestionIdx(nextIdx);
+      // Trailing space + caret at end: user can type args or Tab to cycle more.
+      setInputFromAutocomplete(visible[nextIdx].completion);
+    },
+    [
+      input,
+      slashCyclePrefix,
+      slashSuggestionIdx,
+      applySlashSuggestion,
+      setInputFromAutocomplete,
+    ],
+  );
+
+  /** Arrow selection: keep the input in sync while Tab-cycling. */
+  const handleSelectSuggestion = useCallback(
+    (index: number) => {
+      setSlashSuggestionIdx(index);
+      if (slashCyclePrefix !== null) {
+        const pick = slashSuggestions[index];
+        if (pick) setInputFromAutocomplete(pick.completion);
+      }
+    },
+    [slashCyclePrefix, slashSuggestions, setInputFromAutocomplete],
+  );
 
   const PAD_X = 2;
   const PAD_TOP = 0;
@@ -1549,13 +1640,13 @@ function App({
         <InputBar
           width={contentWidth}
           input={input}
-          onChange={setInput}
+          onChange={handleInputChange}
           onSubmit={handleSubmit}
           queued={queuedMessages.length > 0}
           scrollHint={!bannerVisible && turns.length > 1}
           placeholder={
             bannerVisible
-              ? "type / for commands · Tab to complete"
+              ? "type / for commands · Tab to cycle"
               : undefined
           }
           focused={showInputBar}
@@ -1566,8 +1657,9 @@ function App({
             slashSuggestionIdx,
             Math.max(slashSuggestions.length - 1, 0),
           )}
-          onSelectSuggestion={setSlashSuggestionIdx}
-          onApplySuggestion={applySlashSuggestion}
+          onSelectSuggestion={handleSelectSuggestion}
+          onTabSuggestion={handleTabSuggestion}
+          inputCursorKey={inputCursorKey}
         />
       )}
       <StatusBar
