@@ -298,3 +298,9 @@ Structured JSON prints to stdout; status messages go to stderr.
 :::note
 `browser_scrape` is unattended and headless. It does not use Peekaboo UI automation or reuse Peekaboo `--snapshot` IDs. For interactive desktop control, use `computer_control` (platform-dependent).
 :::
+
+## Related Architecture
+
+- [Browser Scraper Detailed Design](/docs/goose-architecture/browser-scraper-design)
+- [Polymarket MCP Detailed Design](/docs/goose-architecture/polymarket-mcp-design)
+- [Extensions Architecture Design](/docs/goose-architecture/extensions-design)

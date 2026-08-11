@@ -6,7 +6,7 @@ description: Architectural and engineering design document for the built-in Poly
 
 # Polymarket MCP Detailed Design
 
-This document details the architecture, operational workflow, component design, risk control engine, and security model of the **Polymarket MCP Server** in Goose ([`crates/goose-mcp/src/polymarket/`](file:///mnt/e/goose/crates/goose-mcp/src/polymarket/)).
+This document details the architecture, operational workflow, component design, risk control engine, and security model of the **Polymarket MCP Server** in Goose ([`crates/goose-mcp/src/polymarket/`](../../../crates/goose-mcp/src/polymarket/)).
 
 ---
 
@@ -51,7 +51,7 @@ flowchart TB
         PolymarketWeb["Polymarket Web SPA\n(polymarket.com)"]
     end
 
-    Agent <-->|MCP JSON-RPC Protocol| Router
+    Agent <-->|"MCP JSON-RPC Protocol"| Router
     Router --> ContextEngine
     Router --> RiskEngine
     Router --> ApiClient
@@ -70,11 +70,11 @@ flowchart TB
 
 | Module | Source File | Responsibilities |
 | :--- | :--- | :--- |
-| **Server & Router** | [`mod.rs`](file:///mnt/e/goose/crates/goose-mcp/src/polymarket/mod.rs) | Defines MCP tool schemas, tool routing via `#[tool]`, input parsing, JSON serialization, and instructions. |
-| **API Client** | [`api.rs`](file:///mnt/e/goose/crates/goose-mcp/src/polymarket/api.rs) | Asynchronous `reqwest` client for Gamma (markets/search), CLOB (books/prices/orders), and Data API (positions). |
-| **Strategy & Risk** | [`strategy.rs`](file:///mnt/e/goose/crates/goose-mcp/src/polymarket/strategy.rs) | Hard & soft pre-trade risk checks, edge calculation against LLM `fair_prob`, and `OrderIntent` construction. |
-| **Browser Scraper** | [`browser.rs`](file:///mnt/e/goose/crates/goose-mcp/src/polymarket/browser.rs) | Headless Chrome driver via Goose's `computercontroller` subsystem to render SPAs and extract DOM market cards / screenshots. |
-| **Type Definitions** | [`types.rs`](file:///mnt/e/goose/crates/goose-mcp/src/polymarket/types.rs) | Strongly typed representations of markets, order books, positions, intents, and risk limits. |
+| **Server & Router** | [`mod.rs`](../../../crates/goose-mcp/src/polymarket/mod.rs) | Defines MCP tool schemas, tool routing via `#[tool]`, input parsing, JSON serialization, and instructions. |
+| **API Client** | [`api.rs`](../../../crates/goose-mcp/src/polymarket/api.rs) | Asynchronous `reqwest` client for Gamma (markets/search), CLOB (books/prices/orders), and Data API (positions). |
+| **Strategy & Risk** | [`strategy.rs`](../../../crates/goose-mcp/src/polymarket/strategy.rs) | Hard & soft pre-trade risk checks, edge calculation against LLM `fair_prob`, and `OrderIntent` construction. |
+| **Browser Scraper** | [`browser.rs`](../../../crates/goose-mcp/src/polymarket/browser.rs) | Headless Chrome driver via Goose's `computercontroller` subsystem ([Design Doc](./browser-scraper-design.md)) to render SPAs and extract DOM market cards / screenshots. |
+| **Type Definitions** | [`types.rs`](../../../crates/goose-mcp/src/polymarket/types.rs) | Strongly typed representations of markets, order books, positions, intents, and risk limits. |
 
 ---
 
@@ -132,7 +132,7 @@ sequenceDiagram
 
 ## 4. Detailed Component Design
 
-### 4.1 REST API Integration ([`api.rs`](file:///mnt/e/goose/crates/goose-mcp/src/polymarket/api.rs))
+### 4.1 REST API Integration ([`api.rs`](../../../crates/goose-mcp/src/polymarket/api.rs))
 
 The API layer interfaces with three primary Polymarket endpoints:
 
@@ -150,18 +150,21 @@ The API layer interfaces with three primary Polymarket endpoints:
 
 ---
 
-### 4.2 Browser Scraping Subsystem ([`browser.rs`](file:///mnt/e/goose/crates/goose-mcp/src/polymarket/browser.rs))
+### 4.2 Browser Scraping Subsystem ([`browser.rs`](../../../crates/goose-mcp/src/polymarket/browser.rs))
 
-For dynamic single-page applications (SPAs) where raw HTTP GET returns an empty shell, `browser_scrape_markets` utilizes headless Chrome:
-- Launches Chrome via the `computercontroller` shared crate.
-- Navigates to `https://polymarket.com` or a specific event slug (`market_url_from_slug`).
-- Waits for `settle_ms` (default 3,000ms) or an explicit CSS `ready_selector`.
-- Extracts market cards, title strings, outcome probabilities, and text excerpts.
-- Optionally captures a base64-encoded PNG screenshot embedded in the MCP tool response.
+For dynamic single-page applications (SPAs) where raw HTTP GET returns an empty shell, `browser_scrape_markets` utilizes the shared headless Chrome subsystem ([`computercontroller::browser_scrape`](../../../crates/goose-mcp/src/computercontroller/browser_scrape/)):
+- **Process Orchestration**: Launches an isolated Chromium/Chrome instance via CDP with ephemeral user profile directories (`tempdir`), custom user-agent, and transparent proxy forwarding with loopback bypass.
+- **Slug Normalization**: Converts bare slugs (e.g., `us-election-2024` or `event/fed-rate-cut`) into full Polymarket URLs via `market_url_from_slug`.
+- **JS-Driven Navigation & Readiness Gate**: Initiates navigation with `window.location.assign` and polls `document.readyState` and DOM content length stability thresholds or explicit `ready_selector`.
+- **Multi-Tier Extraction**: Extracts structured market cards, outcome probabilities, and question titles by parsing in-page JSON blobs (`__NEXT_DATA__`, React Query cache), HTML embedded scripts, and DOM text heuristics.
+- **Multimodal Screenshots**: Optionally captures a validated viewport PNG screenshot via CDP and returns it as image content for vision-capable models.
+
+> [!NOTE]
+> For the complete architectural and engineering specification of the browser scraping engine, see the dedicated [Browser Scraper Detailed Design](./browser-scraper-design.md).
 
 ---
 
-### 4.3 Strategy & Risk Engine ([`strategy.rs`](file:///mnt/e/goose/crates/goose-mcp/src/polymarket/strategy.rs))
+### 4.3 Strategy & Risk Engine ([`strategy.rs`](../../../crates/goose-mcp/src/polymarket/strategy.rs))
 
 All order generation passes through a unified risk verification engine before an `OrderIntent` can be constructed.
 
@@ -196,19 +199,19 @@ pub struct RiskLimits {
 flowchart TD
     Start["place_order Call"] --> CheckDryRun{"dry_run == true?"}
     
-    CheckDryRun -- Yes (Default) --> LogPaper["Log Paper Order Intent\n(Status: paper_filled_logged)"]
+    CheckDryRun -->|"Yes (Default)"| LogPaper["Log Paper Order Intent\n(Status: paper_filled_logged)"]
     LogPaper --> ReturnPaper["Return Paper Intent JSON"]
     
-    CheckDryRun -- No (Live Attempt) --> Gate1{"confirm_live == true?"}
-    Gate1 -- No --> Err1["Error: confirm_live required"]
+    CheckDryRun -->|"No (Live Attempt)"| Gate1{"confirm_live == true?"}
+    Gate1 -->|No| Err1["Error: confirm_live required"]
     
-    Gate1 -- Yes --> Gate2{"POLYMARKET_ENABLE_LIVE_ORDERS == 1?"}
-    Gate2 -- No --> Err2["Error: Env var not enabled"]
+    Gate1 -->|Yes| Gate2{"POLYMARKET_ENABLE_LIVE_ORDERS == 1?"}
+    Gate2 -->|No| Err2["Error: Env var not enabled"]
     
-    Gate2 -- Yes --> Gate3{"signed_order JSON present?"}
-    Gate3 -- No --> Err3["Error: Pre-signed EIP-712 order required"]
+    Gate2 -->|Yes| Gate3{"signed_order JSON present?"}
+    Gate3 -->|No| Err3["Error: Pre-signed EIP-712 order required"]
     
-    Gate3 -- Yes --> PostCLOB["POST /order to CLOB API"]
+    Gate3 -->|Yes| PostCLOB["POST /order to CLOB API"]
     PostCLOB --> ReturnLive["Return CLOB Submission Result"]
 ```
 
@@ -267,7 +270,9 @@ goose mcp polymarket
 
 ## 7. Related References
 
-- [Polymarket MCP User Documentation](file:///mnt/e/goose/documentation/docs/mcp/polymarket-mcp.md)
-- [Polymarket Implementation Source Code](file:///mnt/e/goose/crates/goose-mcp/src/polymarket/)
-- [Extensions Architecture Design](file:///mnt/e/goose/documentation/docs/goose-architecture/extensions-design.md)
+- [Polymarket MCP User Documentation](../mcp/polymarket-mcp.md)
+- [Browser Scraper Detailed Design](./browser-scraper-design.md)
+- [Computer Controller User Documentation](../mcp/computer-controller-mcp.md)
+- [Polymarket Implementation Source Code](../../../crates/goose-mcp/src/polymarket/)
+- [Extensions Architecture Design](./extensions-design.md)
 - [Official Polymarket Documentation](https://docs.polymarket.com/)
