@@ -7,7 +7,9 @@ import {
   type KeyboardEvent,
 } from "react";
 import type { GooseSessionApi } from "../useGooseSession";
+import { formatConnectError } from "../url";
 import {
+  isResumeArgInput,
   matchSlashCommands,
   SLASH_AUTOCOMPLETE_MAX,
   STARTUP_GUIDE_COMMANDS,
@@ -39,11 +41,26 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
     clearMessages,
     appendLocalExchange,
     resolvePermission,
+    resumeSessions,
+    refreshResumeSessions,
+    resumeSession,
   } = session;
 
+  const resumeArgMode = isResumeArgInput(draft);
+
+  useEffect(() => {
+    if (resumeArgMode) {
+      void refreshResumeSessions();
+    }
+  }, [resumeArgMode, refreshResumeSessions]);
+
   const suggestions = useMemo(
-    () => matchSlashCommands(draft).slice(0, SLASH_AUTOCOMPLETE_MAX),
-    [draft],
+    () =>
+      matchSlashCommands(draft, {
+        sessions: resumeSessions,
+        currentSessionId: sessionId,
+      }).slice(0, SLASH_AUTOCOMPLETE_MAX),
+    [draft, resumeSessions, sessionId],
   );
 
   useEffect(() => {
@@ -80,6 +97,14 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
           }
           if (result.action === "agent") {
             await sendPrompt(result.text);
+            return;
+          }
+          if (result.action === "resume") {
+            try {
+              await resumeSession(result.target);
+            } catch (err: unknown) {
+              appendLocalExchange(trimmed, formatConnectError(err));
+            }
             return;
           }
         }
@@ -128,6 +153,11 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
 
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      const pick = suggestions[selectedSuggestion];
+      if (pick?.kind === "session") {
+        void runInput(pick.completion);
+        return;
+      }
       void handleSubmit(e);
     }
   }
@@ -199,7 +229,7 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
                 ))}
               </ul>
               <p className="hint splash-hint">
-                Type / for suggestions · tap a command to run it
+                Type / for suggestions · /resume lists saved sessions
               </p>
             </div>
           </div>
@@ -227,10 +257,10 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
           <ul
             className="slash-suggestions"
             role="listbox"
-            aria-label="Commands"
+            aria-label={resumeArgMode ? "Saved sessions" : "Commands"}
           >
             {suggestions.map((s, i) => (
-              <li key={s.name}>
+              <li key={`${s.kind ?? "command"}:${s.completion}`}>
                 <button
                   type="button"
                   role="option"
@@ -243,9 +273,23 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
                   onMouseDown={(e) => {
                     e.preventDefault();
                   }}
-                  onClick={() => applySuggestion(s.completion)}
+                  onClick={() => {
+                    if (s.kind === "session") {
+                      void runInput(s.completion);
+                    } else {
+                      applySuggestion(s.completion);
+                    }
+                  }}
                 >
-                  <span className="slash-suggestion-name mono">/{s.name}</span>
+                  <span
+                    className={
+                      s.kind === "session"
+                        ? "slash-suggestion-name session"
+                        : "slash-suggestion-name mono"
+                    }
+                  >
+                    {s.kind === "session" ? s.name : `/${s.name}`}
+                  </span>
                   <span className="slash-suggestion-desc">{s.description}</span>
                 </button>
               </li>

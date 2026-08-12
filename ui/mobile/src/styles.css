@@ -469,6 +469,14 @@ textarea:disabled {
   font-weight: 600;
 }
 
+.slash-suggestion-name.session {
+  min-width: 0;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .slash-suggestion-desc {
   flex: 1;
   min-width: 0;

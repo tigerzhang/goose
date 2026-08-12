@@ -11,6 +11,7 @@ export type SlashCommandResult =
   | { handled: true; action: "exit" }
   | { handled: true; action: "clear"; message: string }
   | { handled: true; action: "agent"; text: string }
+  | { handled: true; action: "resume"; target: string }
   | { handled: false };
 
 export interface SlashCommand {
@@ -37,12 +38,25 @@ export const STARTUP_GUIDE_COMMANDS: ReadonlyArray<{
 /** Max suggestions shown in the composer autocomplete popup. */
 export const SLASH_AUTOCOMPLETE_MAX = 8;
 
+export type SlashSuggestionKind = "command" | "session";
+
 export interface SlashSuggestion {
   name: string;
   description: string;
   /** Completed input text including leading `/` and trailing space. */
   completion: string;
+  kind?: SlashSuggestionKind;
 }
+
+/** A saved session offered as a `/resume` autocomplete candidate. */
+export interface SavedSession {
+  id: string;
+  name: string;
+  cwd: string;
+  messageCount: number;
+}
+
+const RESUME_CMD = "/resume";
 
 /** Extra agent commands listed in help/autocomplete (sent as ACP prompts). */
 const AGENT_COMMANDS: ReadonlyArray<{ name: string; description: string }> = [
@@ -55,7 +69,6 @@ const AGENT_COMMANDS: ReadonlyArray<{ name: string; description: string }> = [
   { name: "doctor", description: "check goose setup" },
   { name: "goal", description: "set or clear session goal" },
   { name: "grind", description: "set or clear grind goal" },
-  { name: "resume", description: "list or resume a saved session" },
 ];
 
 const AGENT_COMMAND_NAMES = new Set(AGENT_COMMANDS.map((c) => c.name));
@@ -84,7 +97,8 @@ function formatHelpMessage(): string {
     "Agent commands (/status, /compact, /skills, …) run on the remote host.",
     "Recipe and skill slash commands are also supported when configured.",
     "",
-    "Type / for suggestions. Tap a splash command to run it.",
+    "Type / for suggestions. After /resume, saved sessions are offered.",
+    "Tap a splash command to run it.",
   ].join("\n");
 }
 
@@ -119,12 +133,25 @@ const clearCommand: SlashCommand = {
   }),
 };
 
+const resumeCommand: SlashCommand = {
+  name: "resume",
+  description: "list or resume a saved session",
+  run: (args) => {
+    const target = args.trim().split(/\s+/).find(Boolean) ?? "";
+    if (!target) {
+      return { handled: true, action: "agent", text: "/resume" };
+    }
+    return { handled: true, action: "resume", target };
+  },
+};
+
 const COMMANDS: Record<string, SlashCommand> = {
   help: helpCommand,
   "?": helpCommand,
   exit: exitCommand,
   quit: quitCommand,
   clear: clearCommand,
+  resume: resumeCommand,
   ...Object.fromEntries(
     AGENT_COMMANDS.map((c) => [c.name, agentPassthrough(c.name, c.description)]),
   ),
@@ -141,11 +168,112 @@ export function listSlashCommands(): SlashCommand[] {
   return out;
 }
 
+export interface MatchSlashCommandsOptions {
+  sessions?: readonly SavedSession[];
+  currentSessionId?: string | null;
+}
+
+/**
+ * Typed `/resume` argument prefix, or null when the input is not completing
+ * a resume target (command name still being typed, or a second token).
+ */
+export function resumeArgPrefix(input: string): string | null {
+  const trimmed = input.trimStart();
+  if (!trimmed.toLowerCase().startsWith(RESUME_CMD)) return null;
+  const rest = trimmed.slice(RESUME_CMD.length);
+  if (rest.length === 0 || !rest.startsWith(" ")) return null;
+  const partial = rest.trimStart();
+  if (/\s/.test(partial)) return null;
+  return partial;
+}
+
+export function isResumeArgInput(input: string): boolean {
+  return resumeArgPrefix(input) !== null;
+}
+
+function sessionDisplayName(session: SavedSession): string {
+  return session.name.trim() || "(unnamed)";
+}
+
+function sessionMessageLabel(count: number): string {
+  return count === 1 ? "1 msg" : `${count} msgs`;
+}
+
+function sessionReplacement(session: SavedSession, partialLower: string): string {
+  if (
+    session.name.trim() &&
+    session.name.toLowerCase().startsWith(partialLower)
+  ) {
+    return `${session.name} `;
+  }
+  return `${session.id} `;
+}
+
+/**
+ * Complete saved session names/ids for `/resume`.
+ *
+ * Offers sessions with messages (excluding the current session when known).
+ * Matches the typed prefix against session name or id; replacement prefers
+ * a unique non-empty name, otherwise the session id.
+ */
+export function matchResumeSessions(
+  input: string,
+  sessions: readonly SavedSession[],
+  currentSessionId?: string | null,
+): SlashSuggestion[] {
+  const partial = resumeArgPrefix(input);
+  if (partial === null) return [];
+
+  const partialLower = partial.toLowerCase();
+  const candidates: SlashSuggestion[] = [];
+  const seen = new Set<string>();
+
+  for (const session of sessions) {
+    if (currentSessionId && session.id === currentSessionId) continue;
+    if (session.messageCount <= 0) continue;
+
+    const name = sessionDisplayName(session);
+    if (
+      !session.name.toLowerCase().startsWith(partialLower) &&
+      !session.id.toLowerCase().startsWith(partialLower)
+    ) {
+      continue;
+    }
+
+    const replacement = sessionReplacement(session, partialLower);
+    if (seen.has(replacement)) continue;
+    seen.add(replacement);
+
+    candidates.push({
+      name,
+      description: `${sessionMessageLabel(session.messageCount)} · ${session.id}`,
+      completion: `${RESUME_CMD} ${replacement}`,
+      kind: "session",
+    });
+  }
+
+  candidates.sort((a, b) => a.name.localeCompare(b.name));
+  return candidates;
+}
+
 /**
  * Match slash-command completions for the current input.
- * Only active while the first token is a partial command (no args yet).
+ *
+ * Completes command names while the first token is partial. After
+ * `/resume `, completes saved session names/ids when `sessions` is provided.
  */
-export function matchSlashCommands(input: string): SlashSuggestion[] {
+export function matchSlashCommands(
+  input: string,
+  options: MatchSlashCommandsOptions = {},
+): SlashSuggestion[] {
+  if (isResumeArgInput(input)) {
+    return matchResumeSessions(
+      input,
+      options.sessions ?? [],
+      options.currentSessionId,
+    );
+  }
+
   const trimmed = input.trimStart();
   if (!trimmed.startsWith("/")) return [];
   if (/\s/.test(trimmed.slice(1))) return [];
@@ -169,6 +297,7 @@ export function matchSlashCommands(input: string): SlashSuggestion[] {
       name: cmd.name,
       description: cmd.description,
       completion: `/${cmd.name} `,
+      kind: "command" as const,
     }));
 }
 
