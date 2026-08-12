@@ -80,7 +80,7 @@ export const STARTUP_GUIDE_KEYS: ReadonlyArray<{
   key: string;
   desc: string;
 }> = [
-  { key: "Enter", desc: "send · Ctrl+Enter newline · Esc/Ctrl+C exit" },
+  { key: "Enter", desc: "send · Ctrl+Enter newline · Ctrl+D×2 / Ctrl+C exit" },
   { key: "Tab", desc: "cycle /command · Shift+Tab back · ↑↓ pick" },
   { key: "Ctrl+P", desc: "provider · Ctrl+M model · Ctrl+E extensions" },
 ];
@@ -154,7 +154,7 @@ export function formatHelpMessage(): string {
     "  Ctrl+E           Extensions",
     "  ↑↓ / ⌥↑↓         Scroll / fast scroll",
     "  Shift+↑↓         Previous / next turn",
-    "  Esc / Ctrl+C     Exit",
+    "  Ctrl+D twice    Exit (or Ctrl+C)",
   ].join("\n");
 }
 

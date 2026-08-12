@@ -88,18 +88,62 @@ impl rustyline::ConditionalEventHandler for CtrlCHandler {
     }
 }
 
+/// Double Ctrl+D on an empty line exits; on a non-empty line delete the char under the cursor
+/// (same as default rustyline Emacs Ctrl+D / delete-char).
+struct CtrlDHandler {
+    completion_cache: Arc<std::sync::RwLock<CompletionCache>>,
+}
+
+impl CtrlDHandler {
+    fn new(completion_cache: Arc<std::sync::RwLock<CompletionCache>>) -> Self {
+        Self { completion_cache }
+    }
+}
+
+impl rustyline::ConditionalEventHandler for CtrlDHandler {
+    fn handle(
+        &self,
+        _event: &rustyline::Event,
+        n: u16,
+        positive: bool,
+        ctx: &rustyline::EventContext,
+    ) -> Option<rustyline::Cmd> {
+        if !ctx.line().is_empty() {
+            // Match Emacs delete-char under cursor (rustyline default for Ctrl+D).
+            let movement = if positive {
+                rustyline::Movement::ForwardChar(n)
+            } else {
+                rustyline::Movement::BackwardChar(n)
+            };
+            let mut cache = self.completion_cache.write().unwrap();
+            if cache.hint_status != HintStatus::Default {
+                cache.hint_status = HintStatus::Default;
+            }
+            return Some(rustyline::Cmd::Kill(movement));
+        }
+
+        let mut cache = self.completion_cache.write().unwrap();
+        if cache.hint_status == HintStatus::MaybeExit {
+            // Second Ctrl+D confirms exit (EOF).
+            return Some(rustyline::Cmd::EndOfFile);
+        }
+        cache.hint_status = HintStatus::MaybeExit;
+        drop(cache);
+        Some(rustyline::Cmd::Repaint)
+    }
+}
+
 /// The Ctrl-modified character that inserts a newline instead of submitting the
 /// prompt. Configurable via `GOOSE_CLI_NEWLINE_KEY`, defaulting to `j` (Ctrl+J).
-/// Characters already bound to other actions are rejected: `m` (Ctrl+M is Enter)
-/// and `c` (Ctrl+C interrupts), both of which would otherwise shadow the paste
-/// and interrupt handlers.
+/// Characters already bound to other actions are rejected: `m` (Ctrl+M is Enter),
+/// `c` (Ctrl+C interrupts), and `d` (Ctrl+D double-tap exit).
 pub fn get_newline_key() -> char {
     Config::global()
         .get_param::<String>("GOOSE_CLI_NEWLINE_KEY")
         .ok()
         .and_then(|s| s.chars().next())
         .map(|c| c.to_ascii_lowercase())
-        .filter(|c| !matches!(c, 'm' | 'c'))
+        .filter(|c| !matches!(c, 'm' | 'c' | 'd'))
         .unwrap_or('j')
 }
 
@@ -199,12 +243,21 @@ pub fn get_input(
             ))),
         );
 
+        // Override default single Ctrl+D (EOF) with double-tap to exit.
+        editor.bind_sequence(
+            rustyline::KeyEvent(rustyline::KeyCode::Char('d'), rustyline::Modifiers::CTRL),
+            rustyline::EventHandler::Conditional(Box::new(CtrlDHandler::new(
+                completion_cache.clone(),
+            ))),
+        );
+
         let initial = line_prefill.take();
         let input =
             match read_paste_aware_input_with_initial(editor, paste_state, initial.as_deref()) {
                 Ok(text) => text,
                 Err(e) => match e {
                     rustyline::error::ReadlineError::Interrupted => return Ok(InputResult::Exit),
+                    // Confirmed double Ctrl+D (or other true EOF, e.g. closed stdin).
                     rustyline::error::ReadlineError::Eof => return Ok(InputResult::Exit),
                     _ => return Err(e.into()),
                 },
@@ -525,7 +578,8 @@ Enter - Send message
 Tab - Open slash-command tip menu to complete a command (Tab cycles; Enter in menu fills the line only)
 Enter - Run the current line (after Tab completion, press Enter again to execute)
 Ctrl+{newline_key} - Add a newline (configurable via GOOSE_CLI_NEWLINE_KEY)
-Ctrl+C - Clear current line if text is entered, otherwise exit the session
+Ctrl+D twice - Exit the session (empty prompt; first press asks for confirmation)
+Ctrl+C - Clear current line if text is entered; press again on empty line to exit
 Up/Down arrows - Navigate through command history"
     )
 }

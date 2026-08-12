@@ -773,13 +773,14 @@ impl Hinter for GooseCompleter {
             HintStatus::Interrupted => {
                 Some("Interrupted, what should goose work on instead?".to_string())
             }
-            HintStatus::MaybeExit => {
-                Some("Press Ctrl+C again to exit, or type new instructions to continue".to_string())
-            }
+            HintStatus::MaybeExit => Some(
+                "Press Ctrl+D again to exit (or Ctrl+C), or type new instructions to continue"
+                    .to_string(),
+            ),
             HintStatus::Default => {
                 let newline_key = super::input::get_newline_key().to_ascii_uppercase();
                 Some(format!(
-                    "Enter to send · Tab complete /commands · Ctrl+{newline_key} newline"
+                    "Enter to send · Tab complete /commands · Ctrl+{newline_key} newline · Ctrl+D×2 exit"
                 ))
             }
         }

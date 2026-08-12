@@ -63,6 +63,7 @@ import {
   INITIAL_GREETING,
   SCROLL_STEP,
   SCROLL_FAST_MULTIPLIER,
+  CTRL_D_EXIT_MS,
 } from "./constants.js";
 import {
   tryRunSlashCommand,
@@ -277,6 +278,9 @@ const InputBar = React.memo(function InputBar({
                 useInput(
                   (ch, key) => {
                     if (key.shift && (key.upArrow || key.downArrow)) return;
+                    // Ctrl+letter is reserved for app shortcuts (e.g. double
+                    // Ctrl+D exit). Still allow Ctrl+Enter for newline.
+                    if (key.ctrl && !key.return) return;
                     // Autocomplete owns Tab and ↑↓ while the popup is open.
                     if (hasSuggestions) {
                       if (key.tab || ch === "\t") return;
@@ -684,6 +688,10 @@ function App({
   const [toolCallExpandedScroll, setToolCallExpandedScroll] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [pastedFull, setPastedFull] = useState<string | null>(null);
+  // First Ctrl+D arms exit; second within CTRL_D_EXIT_MS confirms.
+  const [exitHint, setExitHint] = useState(false);
+  const pendingExitRef = useRef(false);
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [slashSuggestionIdx, setSlashSuggestionIdx] = useState(0);
   // While Tab-cycling, keep matching against the original typed prefix so the
   // suggestion list does not collapse when the input is filled with a candidate.
@@ -1397,13 +1405,51 @@ function App({
     [toolCallRanges, selectedToolCallIdx, scrollOffsetForRange],
   );
 
+  useEffect(() => {
+    return () => {
+      if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+    };
+  }, []);
+
   useInput(
     (ch, key) => {
       if (toolCallExpanded) return;
 
-      if (key.escape || (ch === "c" && key.ctrl)) {
-        if (key.escape && pastedFull !== null) return;
+      // Double Ctrl+D to exit (ESC no longer quits).
+      if (ch === "d" && key.ctrl) {
+        if (pendingExitRef.current) {
+          if (exitTimerRef.current) {
+            clearTimeout(exitTimerRef.current);
+            exitTimerRef.current = null;
+          }
+          pendingExitRef.current = false;
+          setExitHint(false);
+          exit();
+          return;
+        }
+        pendingExitRef.current = true;
+        setExitHint(true);
+        exitTimerRef.current = setTimeout(() => {
+          pendingExitRef.current = false;
+          setExitHint(false);
+          exitTimerRef.current = null;
+        }, CTRL_D_EXIT_MS);
+        return;
+      }
+
+      // Any other key cancels a pending double-Ctrl+D exit.
+      if (pendingExitRef.current) {
+        if (exitTimerRef.current) {
+          clearTimeout(exitTimerRef.current);
+          exitTimerRef.current = null;
+        }
+        pendingExitRef.current = false;
+        setExitHint(false);
+      }
+
+      if (ch === "c" && key.ctrl) {
         exit();
+        return;
       }
 
       if (!loading && sessionIdRef.current) {
@@ -1587,7 +1633,7 @@ function App({
               statusBarH,
             0,
           )}
-          status={status}
+          status={exitHint ? "press Ctrl+D again to exit" : status}
           loading={loading}
           spinIdx={spinIdx}
         />
@@ -1664,7 +1710,7 @@ function App({
       )}
       <StatusBar
         width={contentWidth}
-        status={status}
+        status={exitHint ? "press Ctrl+D again to exit" : status}
         loading={loading}
         spinIdx={spinIdx}
         contextUsage={contextUsage}

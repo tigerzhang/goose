@@ -1395,7 +1395,7 @@ fn display_startup_guide() {
         style(" ").dim(),
         style("Enter").cyan(),
         style(format!(
-            "send · Ctrl+{newline_key} newline · Ctrl+C clear/exit"
+            "send · Ctrl+{newline_key} newline · Ctrl+D×2 exit · Ctrl+C clear"
         ))
         .dim()
     );
