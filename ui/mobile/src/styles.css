@@ -285,7 +285,79 @@ textarea:disabled {
   margin: auto;
   text-align: center;
   color: var(--text-secondary);
-  padding: 24px;
+  padding: 24px 12px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.splash-guide {
+  margin-top: 18px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  padding: 12px 12px 10px;
+}
+
+.splash-guide-title {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.splash-guide-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.splash-cmd {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.splash-cmd:hover:not(:disabled),
+.splash-cmd:focus-visible {
+  background: var(--bg-soft);
+  outline: none;
+}
+
+.splash-cmd:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.splash-cmd-name {
+  flex: 0 0 auto;
+  min-width: 5.5rem;
+  color: var(--accent);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.splash-cmd-desc {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.splash-hint {
+  margin: 10px 0 0;
+  text-align: center;
 }
 
 .bubble {
@@ -335,6 +407,7 @@ textarea:disabled {
 }
 
 .composer {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -352,6 +425,58 @@ textarea:disabled {
 .composer-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.slash-suggestions {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.slash-suggestion {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.slash-suggestion:hover,
+.slash-suggestion.active {
+  background: var(--bg-soft);
+}
+
+.slash-suggestion-name {
+  flex: 0 0 auto;
+  min-width: 5.5rem;
+  color: var(--accent);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.slash-suggestion-desc {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Tool calls */

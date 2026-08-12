@@ -1,5 +1,18 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import type { GooseSessionApi } from "../useGooseSession";
+import {
+  matchSlashCommands,
+  SLASH_AUTOCOMPLETE_MAX,
+  STARTUP_GUIDE_COMMANDS,
+  tryRunSlashCommand,
+} from "../slashCommands";
 import { PermissionModal } from "./PermissionModal";
 import { ToolCallCard } from "./ToolCallCard";
 
@@ -11,7 +24,9 @@ type Props = {
 
 export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
   const [draft, setDraft] = useState("");
+  const [selectedSuggestion, setSelectedSuggestion] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const {
     messages,
     isPrompting,
@@ -21,19 +36,100 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
     sendPrompt,
     cancelPrompt,
     newSession,
+    clearMessages,
+    appendLocalExchange,
     resolvePermission,
   } = session;
+
+  const suggestions = useMemo(
+    () => matchSlashCommands(draft).slice(0, SLASH_AUTOCOMPLETE_MAX),
+    [draft],
+  );
+
+  useEffect(() => {
+    setSelectedSuggestion(0);
+  }, [draft]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, statusLine, pendingPermission]);
 
+  function applySuggestion(completion: string) {
+    setDraft(completion);
+    textareaRef.current?.focus();
+  }
+
+  async function runInput(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || isPrompting) return;
+
+    if (trimmed.startsWith("/")) {
+      const result = tryRunSlashCommand(trimmed);
+      if (result.handled) {
+        setDraft("");
+        if ("action" in result) {
+          if (result.action === "exit") {
+            onDisconnect();
+            return;
+          }
+          if (result.action === "clear") {
+            // Clear local UI immediately, then tell the agent so host history is wiped.
+            clearMessages();
+            await sendPrompt("/clear");
+            return;
+          }
+          if (result.action === "agent") {
+            await sendPrompt(result.text);
+            return;
+          }
+        }
+        if ("message" in result && result.message) {
+          appendLocalExchange(trimmed, result.message);
+        }
+        return;
+      }
+    }
+
+    setDraft("");
+    await sendPrompt(trimmed);
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const text = draft;
-    if (!text.trim() || isPrompting) return;
-    setDraft("");
-    await sendPrompt(text);
+    await runInput(draft);
+  }
+
+  function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (suggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedSuggestion((i) => (i + 1) % suggestions.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedSuggestion(
+          (i) => (i - 1 + suggestions.length) % suggestions.length,
+        );
+        return;
+      }
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const pick = suggestions[selectedSuggestion];
+        if (pick) applySuggestion(pick.completion);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setDraft(draft.startsWith("/") ? "" : draft);
+        return;
+      }
+    }
+
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void handleSubmit(e);
+    }
   }
 
   return (
@@ -83,6 +179,29 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
             <p className="hint">
               Tools and files run on the host, not on this phone.
             </p>
+            <div className="splash-guide" aria-label="Inline commands">
+              <p className="splash-guide-title">· inline commands</p>
+              <ul className="splash-guide-list">
+                {STARTUP_GUIDE_COMMANDS.map(({ cmd, desc }) => (
+                  <li key={cmd}>
+                    <button
+                      type="button"
+                      className="splash-cmd"
+                      disabled={isPrompting}
+                      onClick={() => {
+                        void runInput(cmd);
+                      }}
+                    >
+                      <span className="splash-cmd-name mono">{cmd}</span>
+                      <span className="splash-cmd-desc">{desc}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p className="hint splash-hint">
+                Type / for suggestions · tap a command to run it
+              </p>
+            </div>
           </div>
         )}
         {messages.map((msg) => (
@@ -104,18 +223,46 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
       </main>
 
       <form className="composer" onSubmit={(e) => void handleSubmit(e)}>
+        {suggestions.length > 0 && (
+          <ul
+            className="slash-suggestions"
+            role="listbox"
+            aria-label="Commands"
+          >
+            {suggestions.map((s, i) => (
+              <li key={s.name}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={i === selectedSuggestion}
+                  className={
+                    i === selectedSuggestion
+                      ? "slash-suggestion active"
+                      : "slash-suggestion"
+                  }
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                  }}
+                  onClick={() => applySuggestion(s.completion)}
+                >
+                  <span className="slash-suggestion-name mono">/{s.name}</span>
+                  <span className="slash-suggestion-desc">{s.description}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <textarea
+          ref={textareaRef}
           rows={2}
-          placeholder="Message the remote agent…"
+          placeholder="Message or /command…"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              void handleSubmit(e);
-            }
-          }}
+          onKeyDown={handleKeyDown}
           disabled={isPrompting && draft.length === 0}
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
         />
         <div className="composer-actions">
           {isPrompting ? (

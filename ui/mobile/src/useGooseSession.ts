@@ -52,6 +52,13 @@ export type GooseSessionApi = {
   disconnect: () => void;
   newSession: () => Promise<void>;
   sendPrompt: (text: string) => Promise<void>;
+  /** Local-only: clear transcript UI without creating a new session. */
+  clearMessages: () => void;
+  /**
+   * Append a local user bubble and optional system reply without contacting the agent
+   * (e.g. /help).
+   */
+  appendLocalExchange: (userText: string, systemText?: string) => void;
   cancelPrompt: () => Promise<void>;
   resolvePermission: (action: PermissionAction) => void;
 };
@@ -367,6 +374,31 @@ export function useGooseSession(): GooseSessionApi {
     }
   }, []);
 
+  const clearMessages = useCallback(() => {
+    streamingMsgIdRef.current = null;
+    setMessages([]);
+    setStatusLine(null);
+  }, []);
+
+  const appendLocalExchange = useCallback(
+    (userText: string, systemText?: string) => {
+      const user = userText.trim();
+      if (!user) return;
+      setMessages((prev) => {
+        const next: ChatMessage[] = [
+          ...prev,
+          { id: newId("user"), role: "user", text: user },
+        ];
+        const system = systemText?.trim();
+        if (system) {
+          next.push({ id: newId("system"), role: "system", text: system });
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
   useEffect(() => {
     return () => {
       clearPermissionQueue();
@@ -386,6 +418,8 @@ export function useGooseSession(): GooseSessionApi {
     disconnect,
     newSession,
     sendPrompt,
+    clearMessages,
+    appendLocalExchange,
     cancelPrompt,
     resolvePermission,
   };

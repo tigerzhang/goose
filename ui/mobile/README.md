@@ -9,6 +9,8 @@ This is the P1 spike from `REMOTE_MOBILE_GOOSE_DESIGN.md`: the phone is only a U
 - Connect: base URL, secret key, optional cert fingerprint (stored; browsers cannot pin), host cwd
 - Probe `/status` then authenticated `/acp`
 - New ACP session → chat → streaming assistant text
+- Splash slash commands on empty chat (`/help`, `/status`, `/compact`, `/skills`, `/clear`, `/exit`)
+- Type `/` for command suggestions; agent commands run on the remote host
 - Collapsed tool-call activity
 - Tool permission modal (allow once / always / deny)
 - Installable PWA shell (home-screen)
