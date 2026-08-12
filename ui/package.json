@@ -4,6 +4,7 @@
     "acp",
     "text",
     "desktop",
+    "mobile",
     "goose-binary/*"
   ],
   "scripts": {

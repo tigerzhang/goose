@@ -68,13 +68,36 @@ function extractSessionId(value: unknown): string | null {
   return null;
 }
 
+/** Options for ACP Streamable HTTP auth and extra request headers. */
+export type HttpStreamOptions = {
+  /**
+   * Shared secret matching `GOOSE_SERVER__SECRET_KEY` on the server.
+   * Sent as the `X-Secret-Key` header on every ACP HTTP request.
+   */
+  secretKey?: string;
+  /** Extra headers merged into every ACP HTTP request (after auth headers). */
+  headers?: Record<string, string>;
+};
+
+function buildAuthHeaders(options?: HttpStreamOptions): Record<string, string> {
+  const headers: Record<string, string> = { ...(options?.headers ?? {}) };
+  if (options?.secretKey) {
+    headers["X-Secret-Key"] = options.secretKey;
+  }
+  return headers;
+}
+
 /**
  * Stream that speaks the ACP Streamable HTTP transport: a connection-scoped
  * GET SSE stream plus a session-scoped stream per active `sessionId`.
  */
-export function createHttpStream(serverUrl: string): Stream {
+export function createHttpStream(
+  serverUrl: string,
+  options?: HttpStreamOptions,
+): Stream {
   const base = serverUrl.replace(/\/+$/, "");
   const endpoint = `${base}/acp`;
+  const authHeaders = buildAuthHeaders(options);
 
   let connectionId: string | null = null;
   let connectionStreamAbort: AbortController | null = null;
@@ -108,6 +131,7 @@ export function createHttpStream(serverUrl: string): Stream {
     const response = await fetch(endpoint, {
       method: "GET",
       headers: {
+        ...authHeaders,
         Accept: "text/event-stream",
         [ACP_CONNECTION_HEADER]: connectionId,
       },
@@ -140,6 +164,7 @@ export function createHttpStream(serverUrl: string): Stream {
       response = await fetch(endpoint, {
         method: "GET",
         headers: {
+          ...authHeaders,
           Accept: "text/event-stream",
           [ACP_CONNECTION_HEADER]: connectionId,
           [ACP_SESSION_HEADER]: sessionId,
@@ -244,6 +269,7 @@ export function createHttpStream(serverUrl: string): Stream {
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
+        ...authHeaders,
         "Content-Type": "application/json",
         Accept: "application/json",
       },
@@ -251,8 +277,12 @@ export function createHttpStream(serverUrl: string): Stream {
     });
 
     if (!response.ok) {
+      const statusHint =
+        response.status === 401 || response.status === 403
+          ? " (check X-Secret-Key / GOOSE_SERVER__SECRET_KEY)"
+          : "";
       throw new Error(
-        `ACP initialize failed: ${response.status} ${response.statusText}`,
+        `ACP initialize failed: ${response.status} ${response.statusText}${statusHint}`,
       );
     }
 
@@ -278,6 +308,7 @@ export function createHttpStream(serverUrl: string): Stream {
     }
 
     const headers: Record<string, string> = {
+      ...authHeaders,
       "Content-Type": "application/json",
       Accept: "application/json",
       [ACP_CONNECTION_HEADER]: connectionId,
@@ -325,7 +356,10 @@ export function createHttpStream(serverUrl: string): Stream {
     try {
       await fetch(endpoint, {
         method: "DELETE",
-        headers: { [ACP_CONNECTION_HEADER]: connectionId },
+        headers: {
+          ...authHeaders,
+          [ACP_CONNECTION_HEADER]: connectionId,
+        },
       });
     } catch {
       // best-effort

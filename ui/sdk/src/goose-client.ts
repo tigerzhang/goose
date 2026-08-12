@@ -33,7 +33,27 @@ import {
   installGooseExtNotificationDispatcher,
   type GooseClientCallbacks,
 } from "./generated/client.gen.js";
-import { createHttpStream } from "./http-stream.js";
+import {
+  createHttpStream,
+  type HttpStreamOptions,
+} from "./http-stream.js";
+
+/** HTTP base URL plus optional auth for `createHttpStream`. */
+export type GooseHttpConnection = {
+  url: string;
+} & HttpStreamOptions;
+
+function isHttpConnection(
+  value: Stream | string | GooseHttpConnection,
+): value is GooseHttpConnection {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "url" in value &&
+    typeof (value as GooseHttpConnection).url === "string" &&
+    !("readable" in value)
+  );
+}
 
 export class GooseClient {
   private conn: ClientSideConnection;
@@ -41,12 +61,14 @@ export class GooseClient {
 
   constructor(
     toClient: () => GooseClientCallbacks,
-    streamOrUrl: Stream | string,
+    streamOrUrl: Stream | string | GooseHttpConnection,
   ) {
     const stream =
       typeof streamOrUrl === "string"
         ? createHttpStream(streamOrUrl)
-        : streamOrUrl;
+        : isHttpConnection(streamOrUrl)
+          ? createHttpStream(streamOrUrl.url, streamOrUrl)
+          : streamOrUrl;
     const toAcpClient = () =>
       installGooseExtAgentRequestDispatcher(
         installGooseExtNotificationDispatcher(toClient()),

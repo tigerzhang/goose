@@ -2,6 +2,7 @@ packages:
   - 'sdk'
   - 'text'
   - 'desktop'
+  - 'mobile'
   - 'goose-binary/*'
 
 registry: https://registry.npmjs.org/
