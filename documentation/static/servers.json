@@ -374,6 +374,17 @@
     "environmentVariables": []
   },
   {
+    "id": "grok",
+    "name": "Grok Build",
+    "description": "Call the local Grok Build CLI to run prompts and inspect Grok sessions",
+    "command": "",
+    "link": "https://github.com/aaif-goose/goose/tree/main/crates/goose-mcp/src/grok",
+    "installation_notes": "Built-in extension. Requires the Grok Build CLI (`grok`) installed and authenticated (`grok login` or XAI_API_KEY).",
+    "is_builtin": true,
+    "endorsed": true,
+    "environmentVariables": []
+  },
+  {
     "id": "jetbrains",
     "name": "JetBrains",
     "description": "Integrate with any JetBrains IDE (requires local setup, dependent on your IDE version)",

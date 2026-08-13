@@ -1174,6 +1174,11 @@ fn configure_builtin_extension() -> anyhow::Result<()> {
             "Code editing and shell access",
         ),
         (
+            "grok",
+            "Grok Build",
+            "Call the Grok Build CLI to run prompts and inspect Grok sessions",
+        ),
+        (
             "memory",
             "Memory",
             "Tools to save and retrieve durable memories",
