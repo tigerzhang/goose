@@ -327,7 +327,9 @@ export function createHttpStream(
       }
     }
 
-    if (outboundSessionId && messageMethod(msg) !== "session/load") {
+    // Open the session GET stream before the POST so load-session replay
+    // notifications and the JSON-RPC response (both session-scoped) are received.
+    if (outboundSessionId) {
       try {
         await ensureSessionGetStream(outboundSessionId);
       } catch (err) {

@@ -9,7 +9,6 @@ import {
   type RequestPermissionResponse,
   type SessionInfo,
   type SessionNotification,
-  type ToolCallStatus,
 } from "@agentclientprotocol/sdk";
 import { formatConnectError } from "./url";
 import {
@@ -22,42 +21,17 @@ import type {
   ConnectionState,
   PendingPermission,
   PermissionAction,
-  ToolCallEntry,
 } from "./types";
 import type { SavedSession } from "./slashCommands";
-
-function newId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function summarizeRaw(value: unknown, max = 160): string | undefined {
-  if (value === undefined || value === null) return undefined;
-  try {
-    const s =
-      typeof value === "string" ? value : JSON.stringify(value, null, 0);
-    if (s.length <= max) return s;
-    return `${s.slice(0, max - 1)}…`;
-  } catch {
-    return String(value).slice(0, max);
-  }
-}
+import {
+  applyAcpSessionUpdate,
+  finalizeStreaming,
+  newMessageId,
+  visibleMessageCount,
+} from "./transcript";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function chunkMessageId(update: {
-  messageId?: string | null;
-  _meta?: { [key: string]: unknown } | null;
-}): string | undefined {
-  if (typeof update.messageId === "string" && update.messageId) {
-    return update.messageId;
-  }
-  const goose = update._meta?.goose;
-  if (!isRecord(goose)) return undefined;
-  return typeof goose.messageId === "string" && goose.messageId
-    ? goose.messageId
-    : undefined;
 }
 
 function sessionInfoToSaved(info: SessionInfo): SavedSession {
@@ -96,7 +70,11 @@ export type GooseSessionApi = {
   connectionState: ConnectionState;
   connectionError: string | null;
   sessionId: string | null;
+  /** Display name of the loaded session, when known. */
+  sessionTitle: string | null;
   messages: ChatMessage[];
+  /** User/assistant turns restored by the last `/resume`. */
+  restoredCount: number;
   isPrompting: boolean;
   statusLine: string | null;
   pendingPermission: PendingPermission | null;
@@ -123,7 +101,6 @@ export function useGooseSession(): GooseSessionApi {
   const clientRef = useRef<GooseClient | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const configRef = useRef<ConnectionConfig | null>(null);
-  const streamingMsgIdRef = useRef<string | null>(null);
   const permissionResolvers = useRef(
     new Map<string, (response: RequestPermissionResponse) => void>(),
   );
@@ -132,17 +109,33 @@ export function useGooseSession(): GooseSessionApi {
     useState<ConnectionState>("disconnected");
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionTitle, setSessionTitle] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [restoredCount, setRestoredCount] = useState(0);
   const [isPrompting, setIsPrompting] = useState(false);
   const [statusLine, setStatusLine] = useState<string | null>(null);
   const [pendingPermission, setPendingPermission] =
     useState<PendingPermission | null>(null);
   const [resumeSessions, setResumeSessions] = useState<SavedSession[]>([]);
   const transcriptEpochRef = useRef(0);
+  const messagesRef = useRef<ChatMessage[]>([]);
+  const replayingRef = useRef(false);
   const resumeSessionsRef = useRef<SavedSession[]>([]);
   const refreshResumeSessionsRef = useRef<
     (() => Promise<SavedSession[]>) | null
   >(null);
+
+  const replaceMessages = useCallback((next: ChatMessage[]) => {
+    messagesRef.current = next;
+    setMessages(next);
+  }, []);
+
+  const updateMessages = useCallback(
+    (fn: (prev: ChatMessage[]) => ChatMessage[]) => {
+      replaceMessages(fn(messagesRef.current));
+    },
+    [replaceMessages],
+  );
 
   const clearPermissionQueue = useCallback(() => {
     for (const resolve of permissionResolvers.current.values()) {
@@ -157,146 +150,33 @@ export function useGooseSession(): GooseSessionApi {
     clientRef.current = null;
     sessionIdRef.current = null;
     configRef.current = null;
-    streamingMsgIdRef.current = null;
     transcriptEpochRef.current += 1;
     resumeSessionsRef.current = [];
     setResumeSessions([]);
     setSessionId(null);
-    setMessages([]);
+    setSessionTitle(null);
+    setRestoredCount(0);
+    replaceMessages([]);
     setIsPrompting(false);
     setStatusLine(null);
     setConnectionState("disconnected");
     setConnectionError(null);
-  }, [clearPermissionQueue]);
-
-  const upsertToolCall = useCallback(
-    (toolCallId: string, patch: Partial<ToolCallEntry> & { title?: string }) => {
-      setMessages((prev) => {
-        const next = [...prev];
-        // Prefer attaching tool calls to the latest assistant message, or create one.
-        let targetIdx = -1;
-        for (let i = next.length - 1; i >= 0; i--) {
-          if (next[i]!.role === "assistant") {
-            targetIdx = i;
-            break;
-          }
-        }
-        if (targetIdx < 0) {
-          next.push({
-            id: newId("assistant"),
-            role: "assistant",
-            text: "",
-            toolCalls: [],
-          });
-          targetIdx = next.length - 1;
-        }
-
-        const msg = { ...next[targetIdx]! };
-        const tools = [...(msg.toolCalls ?? [])];
-        const existing = tools.findIndex((t) => t.toolCallId === toolCallId);
-        if (existing >= 0) {
-          tools[existing] = { ...tools[existing]!, ...patch };
-        } else {
-          tools.push({
-            toolCallId,
-            title: patch.title ?? toolCallId,
-            status: (patch.status as ToolCallStatus) ?? "pending",
-            kind: patch.kind,
-            summary: patch.summary,
-            expanded: false,
-          });
-        }
-        msg.toolCalls = tools;
-        next[targetIdx] = msg;
-        return next;
-      });
-    },
-    [],
-  );
-
-  const appendTextChunk = useCallback(
-    (role: "user" | "assistant", text: string, messageId?: string) => {
-      const epoch = transcriptEpochRef.current;
-      setMessages((prev) => {
-        if (transcriptEpochRef.current !== epoch) return prev;
-        const next = [...prev];
-        if (messageId) {
-          const idx = next.findIndex((m) => m.id === messageId);
-          if (idx >= 0) {
-            next[idx] = {
-              ...next[idx]!,
-              text: next[idx]!.text + text,
-              streaming: role === "assistant",
-            };
-            return next;
-          }
-        }
-        if (role === "assistant" && streamingMsgIdRef.current) {
-          const idx = next.findIndex((m) => m.id === streamingMsgIdRef.current);
-          if (idx >= 0 && next[idx]!.role === "assistant") {
-            next[idx] = {
-              ...next[idx]!,
-              text: next[idx]!.text + text,
-              streaming: true,
-            };
-            return next;
-          }
-        }
-        const id = messageId ?? newId(role);
-        if (role === "assistant") {
-          streamingMsgIdRef.current = id;
-        } else {
-          streamingMsgIdRef.current = null;
-        }
-        next.push({
-          id,
-          role,
-          text,
-          streaming: role === "assistant",
-          toolCalls: role === "assistant" ? [] : undefined,
-        });
-        return next;
-      });
-    },
-    [],
-  );
+  }, [clearPermissionQueue, replaceMessages]);
 
   const handleSessionUpdate = useCallback(
     (params: SessionNotification) => {
-      const update = params.update;
-      if (
-        update.sessionUpdate === "agent_message_chunk" ||
-        update.sessionUpdate === "user_message_chunk"
-      ) {
-        if (update.content.type === "text") {
-          appendTextChunk(
-            update.sessionUpdate === "user_message_chunk"
-              ? "user"
-              : "assistant",
-            update.content.text,
-            chunkMessageId(update),
-          );
-        }
-      } else if (update.sessionUpdate === "tool_call") {
-        upsertToolCall(update.toolCallId, {
-          title: update.title ?? update.toolCallId,
-          status: update.status ?? "pending",
-          kind: update.kind ?? undefined,
-          summary: summarizeRaw(update.rawInput),
-        });
-      } else if (update.sessionUpdate === "tool_call_update") {
-        upsertToolCall(update.toolCallId, {
-          title: update.title ?? undefined,
-          status: update.status ?? undefined,
-          kind: update.kind ?? undefined,
-          summary:
-            summarizeRaw(update.rawOutput) ?? summarizeRaw(update.rawInput),
-        });
-      } else if (update.sessionUpdate === "agent_thought_chunk") {
-        // Ignore thoughts in v1 UI (could surface later).
-      }
+      const active = sessionIdRef.current;
+      if (active && String(params.sessionId) !== active) return;
+      const epoch = transcriptEpochRef.current;
+      const { messages: next } = applyAcpSessionUpdate(
+        messagesRef.current,
+        params.update,
+        { streaming: !replayingRef.current },
+      );
+      if (transcriptEpochRef.current !== epoch) return;
+      replaceMessages(next);
     },
-    [appendTextChunk, upsertToolCall],
+    [replaceMessages],
   );
 
   const requestPermission = useCallback(
@@ -356,9 +236,10 @@ export function useGooseSession(): GooseSessionApi {
       throw new Error("Not connected");
     }
     clearPermissionQueue();
-    streamingMsgIdRef.current = null;
     transcriptEpochRef.current += 1;
-    setMessages([]);
+    setSessionTitle(null);
+    setRestoredCount(0);
+    replaceMessages([]);
     setStatusLine("Creating session…");
     const cwd = config.cwd.trim();
     if (!cwd.startsWith("/") && !/^[A-Za-z]:[/\\]/.test(cwd)) {
@@ -374,7 +255,7 @@ export function useGooseSession(): GooseSessionApi {
     setSessionId(session.sessionId);
     setStatusLine(null);
     void refreshResumeSessionsRef.current?.();
-  }, [clearPermissionQueue]);
+  }, [clearPermissionQueue, replaceMessages]);
 
   const connect = useCallback(
     async (config: ConnectionConfig): Promise<boolean> => {
@@ -468,13 +349,15 @@ export function useGooseSession(): GooseSessionApi {
         }
       }
       clearPermissionQueue();
-      streamingMsgIdRef.current = null;
       transcriptEpochRef.current += 1;
-      setMessages([]);
+      replayingRef.current = true;
+      replaceMessages([]);
+      setRestoredCount(0);
       setIsPrompting(false);
       setStatusLine("Loading session…");
       sessionIdRef.current = match.id;
       setSessionId(match.id);
+      setSessionTitle(match.name.trim() || null);
 
       try {
         await client.loadSession({
@@ -483,17 +366,18 @@ export function useGooseSession(): GooseSessionApi {
           mcpServers: [],
         });
       } catch (error) {
+        replayingRef.current = false;
         setStatusLine(null);
         throw error;
       }
 
+      replayingRef.current = false;
+      replaceMessages(finalizeStreaming(messagesRef.current));
+      setRestoredCount(visibleMessageCount(messagesRef.current));
       setStatusLine(null);
-      setMessages((prev) =>
-        prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)),
-      );
       void refreshResumeSessions();
     },
-    [clearPermissionQueue, refreshResumeSessions],
+    [clearPermissionQueue, refreshResumeSessions, replaceMessages],
   );
 
   const sendPrompt = useCallback(async (text: string) => {
@@ -505,10 +389,9 @@ export function useGooseSession(): GooseSessionApi {
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    streamingMsgIdRef.current = null;
-    setMessages((prev) => [
+    updateMessages((prev) => [
       ...prev,
-      { id: newId("user"), role: "user", text: trimmed },
+      { id: newMessageId("user"), role: "user", text: trimmed },
     ]);
     setIsPrompting(true);
     setStatusLine("Thinking…");
@@ -519,10 +402,10 @@ export function useGooseSession(): GooseSessionApi {
         prompt: [{ type: "text", text: trimmed }],
       });
     } catch (error) {
-      setMessages((prev) => [
+      updateMessages((prev) => [
         ...prev,
         {
-          id: newId("system"),
+          id: newMessageId("system"),
           role: "system",
           text: formatConnectError(error),
         },
@@ -530,14 +413,9 @@ export function useGooseSession(): GooseSessionApi {
     } finally {
       setIsPrompting(false);
       setStatusLine(null);
-      streamingMsgIdRef.current = null;
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.streaming ? { ...m, streaming: false } : m,
-        ),
-      );
+      replaceMessages(finalizeStreaming(messagesRef.current));
     }
-  }, []);
+  }, [replaceMessages, updateMessages]);
 
   const cancelPrompt = useCallback(async () => {
     const client = clientRef.current;
@@ -551,29 +429,33 @@ export function useGooseSession(): GooseSessionApi {
   }, []);
 
   const clearMessages = useCallback(() => {
-    streamingMsgIdRef.current = null;
     transcriptEpochRef.current += 1;
-    setMessages([]);
+    setRestoredCount(0);
+    replaceMessages([]);
     setStatusLine(null);
-  }, []);
+  }, [replaceMessages]);
 
   const appendLocalExchange = useCallback(
     (userText: string, systemText?: string) => {
       const user = userText.trim();
       if (!user) return;
-      setMessages((prev) => {
+      updateMessages((prev) => {
         const next: ChatMessage[] = [
           ...prev,
-          { id: newId("user"), role: "user", text: user },
+          { id: newMessageId("user"), role: "user", text: user },
         ];
         const system = systemText?.trim();
         if (system) {
-          next.push({ id: newId("system"), role: "system", text: system });
+          next.push({
+            id: newMessageId("system"),
+            role: "system",
+            text: system,
+          });
         }
         return next;
       });
     },
-    [],
+    [updateMessages],
   );
 
   useEffect(() => {
@@ -587,7 +469,9 @@ export function useGooseSession(): GooseSessionApi {
     connectionState,
     connectionError,
     sessionId,
+    sessionTitle,
     messages,
+    restoredCount,
     isPrompting,
     statusLine,
     pendingPermission,

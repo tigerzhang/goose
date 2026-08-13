@@ -34,6 +34,8 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
     isPrompting,
     statusLine,
     sessionId,
+    sessionTitle,
+    restoredCount,
     pendingPermission,
     sendPrompt,
     cancelPrompt,
@@ -173,6 +175,11 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
           <p className="server-label" title={serverLabel}>
             {serverLabel}
           </p>
+          {sessionTitle && (
+            <p className="session-title" title={sessionTitle}>
+              {sessionTitle}
+            </p>
+          )}
           {sessionId && (
             <p className="session-id mono" title={sessionId}>
               session {sessionId.slice(0, 8)}…
@@ -203,7 +210,7 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
       </header>
 
       <main className="transcript" aria-live="polite">
-        {messages.length === 0 && (
+        {messages.length === 0 && !statusLine && (
           <div className="empty-state">
             <p>Send a message to the remote agent.</p>
             <p className="hint">
@@ -229,10 +236,16 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
                 ))}
               </ul>
               <p className="hint splash-hint">
-                Type / for suggestions · /resume lists saved sessions
+                Type / for suggestions · /resume loads a saved session and its history
               </p>
             </div>
           </div>
+        )}
+        {restoredCount > 0 && (
+          <p className="restore-banner">
+            ↻ {restoredCount} {restoredCount === 1 ? "message" : "messages"}{" "}
+            restored
+          </p>
         )}
         {messages.map((msg) => (
           <article key={msg.id} className={`bubble ${msg.role}`}>
@@ -243,6 +256,14 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
               </header>
             )}
             {msg.text && <div className="bubble-text">{msg.text}</div>}
+            {msg.images?.map((image, index) => (
+              <img
+                key={`${msg.id}-img-${index}`}
+                className="bubble-image"
+                src={`data:${image.mimeType};base64,${image.data}`}
+                alt=""
+              />
+            ))}
             {msg.toolCalls?.map((tool) => (
               <ToolCallCard key={tool.toolCallId} tool={tool} />
             ))}

@@ -37,10 +37,16 @@ export type ToolCallEntry = {
   expanded: boolean;
 };
 
+export type ChatImage = {
+  data: string;
+  mimeType: string;
+};
+
 export type ChatMessage = {
   id: string;
   role: ChatRole;
   text: string;
+  images?: ChatImage[];
   streaming?: boolean;
   toolCalls?: ToolCallEntry[];
 };

@@ -256,6 +256,7 @@ textarea:disabled {
 }
 
 .server-label,
+.session-title,
 .session-id {
   margin: 2px 0 0;
   font-size: 0.78rem;
@@ -264,6 +265,11 @@ textarea:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 60vw;
+}
+
+.session-title {
+  color: var(--text);
+  font-weight: 550;
 }
 
 .chat-header-actions {
@@ -397,6 +403,23 @@ textarea:disabled {
   white-space: pre-wrap;
   word-break: break-word;
   font-size: 0.95rem;
+}
+
+.bubble-image {
+  display: block;
+  max-width: 100%;
+  max-height: 240px;
+  margin-top: 8px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: var(--bg);
+}
+
+.restore-banner {
+  margin: 0 auto 4px;
+  align-self: center;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
 }
 
 .status-line {
