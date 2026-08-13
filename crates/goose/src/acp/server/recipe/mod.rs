@@ -382,6 +382,16 @@ impl GooseAcpAgent {
             };
         }
 
+        self.hook_manager
+            .emit_user_input_required(
+                session_id,
+                crate::hooks::USER_INPUT_KIND_RECIPE_PARAMS,
+                Some("Recipe needs parameter values"),
+                serde_json::to_value(&parameters).ok(),
+                None,
+            )
+            .await;
+
         let response = self
             .request_recipe_params(cx, session_id, parameters)
             .await?;

@@ -142,6 +142,19 @@ Use `${PLUGIN_ROOT}` in a command to reference the plugin directory. goose also 
 | `AfterFileEdit` | After goose successfully edits a file | File path |
 | `BeforeShellExecution` | Before goose runs a shell command | Shell command |
 | `AfterShellExecution` | After goose successfully runs a shell command | Shell command |
+| `PermissionRequest` | Before goose waits for Allow / Deny on a tool | Tool name |
+| `UserInputRequired` | Before goose waits for other user input | `elicitation` or `recipe_params` |
+
+`PermissionRequest` fires when a tool is blocked on explicit approval (Ask / Smart Approve). It does **not** run the tool. Use this to notify yourself (email, ntfy, etc.) that a turn is waiting.
+
+`UserInputRequired` fires when the agent is blocked on any other input:
+
+| Matcher | When |
+|---|---|
+| `elicitation` | An MCP extension presents a form (MCP elicitation) |
+| `recipe_params` | A recipe needs parameter values before it can start |
+
+These two events are observation-only: they cannot approve, deny, or fill in the form. A failed hook is logged and ignored.
 
 The matcher is a regular expression matched against the most relevant string for the event. For example, use `"\\.rs$"` to match Rust files on `AfterFileEdit`, or `"^(cargo test|pnpm test)"` to match test commands on `AfterShellExecution`. The match is unanchored, so `"developer__shell"` also matches `"developer__shell_foo"`; anchor with `^`/`$` when you need an exact match.
 
@@ -199,6 +212,60 @@ Example payload for a `Stop` event after an assistant reply:
   "event": "Stop",
   "session_id": "abc-123",
   "last_assistant_message": "Done. I updated the file and ran the tests."
+}
+```
+
+Example payload when a tool needs approval:
+
+```json
+{
+  "event": "PermissionRequest",
+  "session_id": "abc-123",
+  "matcher_context": "developer__shell",
+  "tool_name": "developer__shell",
+  "tool_input": { "command": "rm -rf build" },
+  "working_dir": "/Users/you/project"
+}
+```
+
+Example payload when an extension asks for a form:
+
+```json
+{
+  "event": "UserInputRequired",
+  "session_id": "abc-123",
+  "matcher_context": "elicitation",
+  "message": "Which environment should I deploy to?",
+  "tool_input": { "type": "object", "properties": { "env": { "type": "string" } } }
+}
+```
+
+A notify-on-wait plugin can subscribe to both events:
+
+```json title="hooks/hooks.json"
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${PLUGIN_ROOT}/scripts/mail-wait.sh"
+          }
+        ]
+      }
+    ],
+    "UserInputRequired": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${PLUGIN_ROOT}/scripts/mail-wait.sh"
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 

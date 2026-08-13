@@ -461,6 +461,36 @@ impl Agent {
             .await;
     }
 
+    async fn emit_user_input_required_from_message(
+        &self,
+        session_id: &str,
+        working_dir: &std::path::Path,
+        message: &Message,
+    ) {
+        for content in &message.content {
+            let MessageContent::ActionRequired(action) = content else {
+                continue;
+            };
+            let ActionRequiredData::Elicitation {
+                message: prompt,
+                requested_schema,
+                ..
+            } = &action.data
+            else {
+                continue;
+            };
+            self.hook_manager
+                .emit_user_input_required(
+                    session_id,
+                    crate::hooks::USER_INPUT_KIND_ELICITATION,
+                    Some(prompt.as_str()),
+                    Some(requested_schema.clone()),
+                    Some(working_dir.to_string_lossy().as_ref()),
+                )
+                .await;
+        }
+    }
+
     fn stop_hook_context(
         session_id: &str,
         last_assistant_message: &str,
@@ -2334,6 +2364,12 @@ impl Agent {
                                                                 if let Err(e) = session_manager.add_message(&session_config.id, &msg).await {
                                                                     warn!("Failed to save elicitation message to session: {}", e);
                                                                 }
+                                                                self.emit_user_input_required_from_message(
+                                                                    &session_config.id,
+                                                                    &session.working_dir,
+                                                                    &msg,
+                                                                )
+                                                                .await;
                                                                 yield AgentEvent::Message(msg);
                                                             }
                                                             ToolStreamItem::Result(output) => {

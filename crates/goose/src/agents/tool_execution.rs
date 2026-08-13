@@ -107,9 +107,21 @@ impl Agent {
                         request.id.clone(),
                         tool_call.name.to_string().clone(),
                         tool_call.arguments.clone().unwrap_or_default(),
-                        security_message,
+                        security_message.clone(),
                     )
                     .user_only();
+                self.hook_manager
+                    .emit_permission_request(
+                        &session.id,
+                        tool_call.name.as_ref(),
+                        tool_call
+                            .arguments
+                            .as_ref()
+                            .map(|args| serde_json::Value::Object(args.clone())),
+                        security_message.as_deref(),
+                        Some(session.working_dir.to_string_lossy().as_ref()),
+                    )
+                    .await;
                 yield action_required_msg;
 
                 let confirmation = confirmation_rx.await

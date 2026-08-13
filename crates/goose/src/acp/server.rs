@@ -224,6 +224,7 @@ pub struct GooseAcpAgent {
     provider_inventory: ProviderInventoryService,
     additional_source_roots: Vec<SourceRoot>,
     recipe_path_cache: Arc<Mutex<HashMap<String, PathBuf>>>,
+    hook_manager: crate::hooks::HookManager,
 }
 
 /// Shorten a session/thread id for perf log correlation.
@@ -644,6 +645,10 @@ impl GooseAcpAgent {
             provider_inventory,
             additional_source_roots: options.additional_source_roots,
             recipe_path_cache: Arc::new(Mutex::new(HashMap::new())),
+            hook_manager: crate::hooks::HookManager::load(
+                std::env::current_dir().ok().as_deref(),
+                false,
+            ),
         })
     }
 

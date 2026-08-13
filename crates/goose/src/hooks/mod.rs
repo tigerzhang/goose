@@ -59,6 +59,10 @@ pub enum HookEvent {
     BeforeShellExecution,
     AfterShellExecution,
     Stop,
+    /// A tool is blocked on explicit user approval (Allow / Deny).
+    PermissionRequest,
+    /// The agent is blocked on non-approval user input (elicitation, recipe params).
+    UserInputRequired,
 }
 
 impl HookEvent {
@@ -75,6 +79,8 @@ impl HookEvent {
             HookEvent::BeforeShellExecution => "BeforeShellExecution",
             HookEvent::AfterShellExecution => "AfterShellExecution",
             HookEvent::Stop => "Stop",
+            HookEvent::PermissionRequest => "PermissionRequest",
+            HookEvent::UserInputRequired => "UserInputRequired",
         }
     }
 
@@ -91,6 +97,8 @@ impl HookEvent {
             "BeforeShellExecution" => HookEvent::BeforeShellExecution,
             "AfterShellExecution" => HookEvent::AfterShellExecution,
             "Stop" => HookEvent::Stop,
+            "PermissionRequest" => HookEvent::PermissionRequest,
+            "UserInputRequired" => HookEvent::UserInputRequired,
             _ => return None,
         })
     }
@@ -219,6 +227,10 @@ impl HookContext {
         self
     }
 }
+
+/// Matcher values for [`HookEvent::UserInputRequired`].
+pub const USER_INPUT_KIND_ELICITATION: &str = "elicitation";
+pub const USER_INPUT_KIND_RECIPE_PARAMS: &str = "recipe_params";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HookDecision {
@@ -354,6 +366,55 @@ impl HookManager {
                 }
             }
         }
+    }
+
+    /// Notify hooks that a tool is waiting for Allow / Deny.
+    pub async fn emit_permission_request(
+        &self,
+        session_id: &str,
+        tool_name: &str,
+        tool_input: Option<Value>,
+        prompt: Option<&str>,
+        working_dir: Option<&str>,
+    ) {
+        if !self.has_hooks(HookEvent::PermissionRequest) {
+            return;
+        }
+        let mut ctx = HookContext::new(HookEvent::PermissionRequest, session_id)
+            .with_tool(tool_name, tool_input);
+        if let Some(prompt) = prompt {
+            ctx.message = Some(prompt.to_string());
+        }
+        if let Some(dir) = working_dir {
+            ctx = ctx.with_working_dir(dir);
+        }
+        self.emit(HookEvent::PermissionRequest, ctx).await;
+    }
+
+    /// Notify hooks that the agent is waiting for non-approval user input.
+    ///
+    /// `kind` is the matcher target (`elicitation`, `recipe_params`).
+    pub async fn emit_user_input_required(
+        &self,
+        session_id: &str,
+        kind: &str,
+        message: Option<&str>,
+        payload: Option<Value>,
+        working_dir: Option<&str>,
+    ) {
+        if !self.has_hooks(HookEvent::UserInputRequired) {
+            return;
+        }
+        let mut ctx = HookContext::new(HookEvent::UserInputRequired, session_id);
+        ctx.matcher_context = Some(kind.to_string());
+        if let Some(message) = message {
+            ctx.message = Some(message.to_string());
+        }
+        ctx.tool_input = payload;
+        if let Some(dir) = working_dir {
+            ctx = ctx.with_working_dir(dir);
+        }
+        self.emit(HookEvent::UserInputRequired, ctx).await;
     }
 
     /// Like [`Self::emit`], but stops at the first rule that denies the event
@@ -866,6 +927,77 @@ mod tests {
             HookContext::new(HookEvent::PreToolUse, "s").with_tool("developer__shell", None),
         )
         .await;
+        assert!(marker.exists());
+    }
+
+    #[test]
+    fn loads_permission_and_user_input_events() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = write_plugin(
+            tmp.path(),
+            "p",
+            r#"{"hooks":{"PermissionRequest":[{"hooks":[{"type":"command","command":"true"}]}],"UserInputRequired":[{"matcher":"elicitation","hooks":[{"type":"command","command":"true"}]}]}}"#,
+        );
+        let mgr = make_manager(vec![DiscoveredPlugin {
+            name: "p".into(),
+            root,
+            scope: PluginScope::User,
+        }]);
+        assert!(mgr.has_hooks(HookEvent::PermissionRequest));
+        assert!(mgr.has_hooks(HookEvent::UserInputRequired));
+    }
+
+    #[tokio::test]
+    async fn user_input_required_matcher_filters_kind() {
+        let tmp = tempfile::tempdir().unwrap();
+        let marker = tmp.path().join("ran.txt");
+        let hooks = format!(
+            r#"{{"hooks":{{"UserInputRequired":[{{"matcher":"elicitation","hooks":[{{"type":"command","command":"touch {}"}}]}}]}}}}"#,
+            marker.to_string_lossy(),
+        );
+        let root = write_plugin(tmp.path(), "p", &hooks);
+        let mgr = make_manager(vec![DiscoveredPlugin {
+            name: "p".into(),
+            root,
+            scope: PluginScope::User,
+        }]);
+
+        mgr.emit_user_input_required("s", USER_INPUT_KIND_RECIPE_PARAMS, None, None, None)
+            .await;
+        assert!(!marker.exists());
+
+        mgr.emit_user_input_required(
+            "s",
+            USER_INPUT_KIND_ELICITATION,
+            Some("pick env"),
+            None,
+            None,
+        )
+        .await;
+        assert!(marker.exists());
+    }
+
+    #[tokio::test]
+    async fn permission_request_runs_for_tool_name() {
+        let tmp = tempfile::tempdir().unwrap();
+        let marker = tmp.path().join("ran.txt");
+        let hooks = format!(
+            r#"{{"hooks":{{"PermissionRequest":[{{"matcher":"developer__shell","hooks":[{{"type":"command","command":"touch {}"}}]}}]}}}}"#,
+            marker.to_string_lossy(),
+        );
+        let root = write_plugin(tmp.path(), "p", &hooks);
+        let mgr = make_manager(vec![DiscoveredPlugin {
+            name: "p".into(),
+            root,
+            scope: PluginScope::User,
+        }]);
+
+        mgr.emit_permission_request("s", "developer__read", None, None, None)
+            .await;
+        assert!(!marker.exists());
+
+        mgr.emit_permission_request("s", "developer__shell", None, Some("confirm"), None)
+            .await;
         assert!(marker.exists());
     }
 }
