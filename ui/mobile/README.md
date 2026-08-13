@@ -11,6 +11,7 @@ This is the P1 spike from `REMOTE_MOBILE_GOOSE_DESIGN.md`: the phone is only a U
 - New ACP session → chat → streaming assistant text
 - Splash slash commands on empty chat (`/help`, `/status`, `/compact`, `/skills`, `/clear`, `/exit`)
 - Type `/` for command suggestions; after `/resume` saved sessions autocomplete (tap to load and render history)
+- Sessions page: browse/search saved chats (`Sessions` in the header, `/sessions`, or bare `/resume`) and tap one to load its history
 - Collapsed tool-call activity
 - Tool permission modal (allow once / always / deny)
 - Installable PWA shell (home-screen)

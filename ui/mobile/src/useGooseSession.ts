@@ -7,7 +7,6 @@ import {
   PROTOCOL_VERSION,
   type RequestPermissionRequest,
   type RequestPermissionResponse,
-  type SessionInfo,
   type SessionNotification,
 } from "@agentclientprotocol/sdk";
 import { formatConnectError } from "./url";
@@ -22,31 +21,16 @@ import type {
   PendingPermission,
   PermissionAction,
 } from "./types";
-import type { SavedSession } from "./slashCommands";
+import {
+  sessionInfoToSaved,
+  type SavedSession,
+} from "./sessions";
 import {
   applyAcpSessionUpdate,
   finalizeStreaming,
   newMessageId,
   visibleMessageCount,
 } from "./transcript";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function sessionInfoToSaved(info: SessionInfo): SavedSession {
-  const meta = info._meta;
-  const messageCount =
-    isRecord(meta) && typeof meta.messageCount === "number"
-      ? meta.messageCount
-      : 0;
-  return {
-    id: String(info.sessionId),
-    name: (info.title ?? "").trim(),
-    cwd: info.cwd,
-    messageCount,
-  };
-}
 
 function resolveSavedSession(
   target: string,
@@ -78,8 +62,10 @@ export type GooseSessionApi = {
   isPrompting: boolean;
   statusLine: string | null;
   pendingPermission: PendingPermission | null;
-  /** Cached saved sessions for `/resume` autocomplete. */
+  /** Cached saved sessions for `/resume` autocomplete and the Sessions page. */
   resumeSessions: SavedSession[];
+  /** Last error from listing saved sessions, if any. */
+  sessionsError: string | null;
   connect: (config: ConnectionConfig) => Promise<boolean>;
   disconnect: () => void;
   newSession: () => Promise<void>;
@@ -117,6 +103,7 @@ export function useGooseSession(): GooseSessionApi {
   const [pendingPermission, setPendingPermission] =
     useState<PendingPermission | null>(null);
   const [resumeSessions, setResumeSessions] = useState<SavedSession[]>([]);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
   const transcriptEpochRef = useRef(0);
   const messagesRef = useRef<ChatMessage[]>([]);
   const replayingRef = useRef(false);
@@ -153,6 +140,7 @@ export function useGooseSession(): GooseSessionApi {
     transcriptEpochRef.current += 1;
     resumeSessionsRef.current = [];
     setResumeSessions([]);
+    setSessionsError(null);
     setSessionId(null);
     setSessionTitle(null);
     setRestoredCount(0);
@@ -304,15 +292,34 @@ export function useGooseSession(): GooseSessionApi {
   > => {
     const client = clientRef.current;
     if (!client) return [];
+
+    const collected: SavedSession[] = [];
+    let cursor: string | undefined;
+    const maxPages = 50;
+
     try {
-      const response = await client.listSessions({
-        _meta: { types: ["user", "scheduled", "acp"] },
-      });
-      const sessions = response.sessions.map(sessionInfoToSaved);
-      resumeSessionsRef.current = sessions;
-      setResumeSessions(sessions);
-      return sessions;
-    } catch {
+      for (let page = 0; page < maxPages; page++) {
+        const response = await client.listSessions({
+          ...(cursor ? { cursor } : {}),
+          _meta: { types: ["user", "scheduled", "acp"] },
+        });
+        collected.push(...response.sessions.map(sessionInfoToSaved));
+        const next = response.nextCursor ?? undefined;
+        if (!next || next === cursor) break;
+        cursor = next;
+      }
+      resumeSessionsRef.current = collected;
+      setResumeSessions(collected);
+      setSessionsError(null);
+      return collected;
+    } catch (error) {
+      if (collected.length > 0) {
+        resumeSessionsRef.current = collected;
+        setResumeSessions(collected);
+        setSessionsError(null);
+        return collected;
+      }
+      setSessionsError(formatConnectError(error));
       return resumeSessionsRef.current;
     }
   }, []);
@@ -476,6 +483,7 @@ export function useGooseSession(): GooseSessionApi {
     statusLine,
     pendingPermission,
     resumeSessions,
+    sessionsError,
     connect,
     disconnect,
     newSession,

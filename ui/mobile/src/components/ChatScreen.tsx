@@ -15,16 +15,21 @@ import {
   STARTUP_GUIDE_COMMANDS,
   tryRunSlashCommand,
 } from "../slashCommands";
-import { PermissionModal } from "./PermissionModal";
 import { ToolCallCard } from "./ToolCallCard";
 
 type Props = {
   session: GooseSessionApi;
   serverLabel: string;
   onDisconnect: () => void;
+  onOpenSessions: () => void;
 };
 
-export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
+export function ChatScreen({
+  session,
+  serverLabel,
+  onDisconnect,
+  onOpenSessions,
+}: Props) {
   const [draft, setDraft] = useState("");
   const [selectedSuggestion, setSelectedSuggestion] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -36,13 +41,11 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
     sessionId,
     sessionTitle,
     restoredCount,
-    pendingPermission,
     sendPrompt,
     cancelPrompt,
     newSession,
     clearMessages,
     appendLocalExchange,
-    resolvePermission,
     resumeSessions,
     refreshResumeSessions,
     resumeSession,
@@ -52,7 +55,7 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
 
   useEffect(() => {
     if (resumeArgMode) {
-      void refreshResumeSessions();
+      void refreshResumeSessions().catch(() => {});
     }
   }, [resumeArgMode, refreshResumeSessions]);
 
@@ -71,7 +74,7 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, statusLine, pendingPermission]);
+  }, [messages, statusLine]);
 
   function applySuggestion(completion: string) {
     setDraft(completion);
@@ -99,6 +102,10 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
           }
           if (result.action === "agent") {
             await sendPrompt(result.text);
+            return;
+          }
+          if (result.action === "sessions") {
+            onOpenSessions();
             return;
           }
           if (result.action === "resume") {
@@ -190,6 +197,14 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
           <button
             type="button"
             className="btn ghost small"
+            onClick={onOpenSessions}
+            disabled={isPrompting}
+          >
+            Sessions
+          </button>
+          <button
+            type="button"
+            className="btn ghost small"
             onClick={() => {
               void newSession().catch((err: unknown) => {
                 console.error("Failed to create session", err);
@@ -236,7 +251,7 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
                 ))}
               </ul>
               <p className="hint splash-hint">
-                Type / for suggestions · /resume loads a saved session and its history
+                Type / for suggestions · Sessions or /resume opens saved chats
               </p>
             </div>
           </div>
@@ -350,12 +365,6 @@ export function ChatScreen({ session, serverLabel, onDisconnect }: Props) {
         </div>
       </form>
 
-      {pendingPermission && (
-        <PermissionModal
-          pending={pendingPermission}
-          onResolve={resolvePermission}
-        />
-      )}
     </div>
   );
 }

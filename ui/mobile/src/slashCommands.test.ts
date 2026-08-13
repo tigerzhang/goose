@@ -100,6 +100,11 @@ describe("matchSlashCommands", () => {
     );
   });
 
+  it("offers /sessions in the command list", () => {
+    const suggestions = matchSlashCommands("/s");
+    assert.ok(suggestions.some((s) => s.name === "sessions"));
+  });
+
   it("switches to session completions after /resume ", () => {
     const suggestions = matchSlashCommands("/resume ", {
       sessions: SESSIONS,
@@ -111,12 +116,11 @@ describe("matchSlashCommands", () => {
 });
 
 describe("tryRunSlashCommand /resume", () => {
-  it("sends a bare /resume to the agent (session list)", () => {
+  it("opens the sessions page when no target is given", () => {
     const result = tryRunSlashCommand("/resume");
     assert.deepEqual(result, {
       handled: true,
-      action: "agent",
-      text: "/resume",
+      action: "sessions",
     });
   });
 
@@ -126,6 +130,15 @@ describe("tryRunSlashCommand /resume", () => {
       handled: true,
       action: "resume",
       target: "react-migration",
+    });
+  });
+});
+
+describe("tryRunSlashCommand /sessions", () => {
+  it("opens the sessions page", () => {
+    assert.deepEqual(tryRunSlashCommand("/sessions"), {
+      handled: true,
+      action: "sessions",
     });
   });
 });

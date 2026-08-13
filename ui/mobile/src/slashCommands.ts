@@ -6,12 +6,21 @@
  * ACP prompts; local-only commands (help, clear UI, exit) run on the client.
  */
 
+import {
+  sessionDisplayName,
+  sessionMessageLabel,
+  type SavedSession,
+} from "./sessions.ts";
+
+export type { SavedSession };
+
 export type SlashCommandResult =
   | { handled: true; message?: string }
   | { handled: true; action: "exit" }
   | { handled: true; action: "clear"; message: string }
   | { handled: true; action: "agent"; text: string }
   | { handled: true; action: "resume"; target: string }
+  | { handled: true; action: "sessions" }
   | { handled: false };
 
 export interface SlashCommand {
@@ -28,6 +37,7 @@ export const STARTUP_GUIDE_COMMANDS: ReadonlyArray<{
   desc: string;
 }> = [
   { cmd: "/help", desc: "show all commands" },
+  { cmd: "/sessions", desc: "browse saved sessions" },
   { cmd: "/status", desc: "model, provider, mode, tokens" },
   { cmd: "/compact", desc: "shrink conversation context" },
   { cmd: "/skills", desc: "list or enable skills" },
@@ -46,14 +56,6 @@ export interface SlashSuggestion {
   /** Completed input text including leading `/` and trailing space. */
   completion: string;
   kind?: SlashSuggestionKind;
-}
-
-/** A saved session offered as a `/resume` autocomplete candidate. */
-export interface SavedSession {
-  id: string;
-  name: string;
-  cwd: string;
-  messageCount: number;
 }
 
 const RESUME_CMD = "/resume";
@@ -97,8 +99,8 @@ function formatHelpMessage(): string {
     "Agent commands (/status, /compact, /skills, …) run on the remote host.",
     "Recipe and skill slash commands are also supported when configured.",
     "",
-    "Type / for suggestions. After /resume, saved sessions are offered.",
-    "Tap a splash command to run it.",
+    "Type / for suggestions. /sessions opens saved chats; after /resume,",
+    "saved sessions are offered. Tap a splash command to run it.",
   ].join("\n");
 }
 
@@ -139,10 +141,17 @@ const resumeCommand: SlashCommand = {
   run: (args) => {
     const target = args.trim().split(/\s+/).find(Boolean) ?? "";
     if (!target) {
-      return { handled: true, action: "agent", text: "/resume" };
+      return { handled: true, action: "sessions" };
     }
     return { handled: true, action: "resume", target };
   },
+};
+
+const sessionsCommand: SlashCommand = {
+  name: "sessions",
+  description: "browse saved sessions",
+  guide: true,
+  run: () => ({ handled: true, action: "sessions" }),
 };
 
 const COMMANDS: Record<string, SlashCommand> = {
@@ -152,6 +161,7 @@ const COMMANDS: Record<string, SlashCommand> = {
   quit: quitCommand,
   clear: clearCommand,
   resume: resumeCommand,
+  sessions: sessionsCommand,
   ...Object.fromEntries(
     AGENT_COMMANDS.map((c) => [c.name, agentPassthrough(c.name, c.description)]),
   ),
@@ -189,14 +199,6 @@ export function resumeArgPrefix(input: string): string | null {
 
 export function isResumeArgInput(input: string): boolean {
   return resumeArgPrefix(input) !== null;
-}
-
-function sessionDisplayName(session: SavedSession): string {
-  return session.name.trim() || "(unnamed)";
-}
-
-function sessionMessageLabel(count: number): string {
-  return count === 1 ? "1 msg" : `${count} msgs`;
 }
 
 function sessionReplacement(session: SavedSession, partialLower: string): string {
