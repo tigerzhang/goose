@@ -1,8 +1,9 @@
 use etcetera::{choose_app_strategy, AppStrategy, AppStrategyArgs};
+use fs2::FileExt;
 use std::collections::HashSet;
 use std::env;
 use std::ffi::OsString;
-use std::fs;
+use std::fs::{self, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
@@ -65,34 +66,70 @@ fn copy_dir_all(source: &Path, destination: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-fn migration_staging_dir(dest: &Path) -> PathBuf {
+fn sibling_with_suffix(dest: &Path, suffix: &str) -> PathBuf {
     match dest.file_name() {
         Some(name) => {
-            let mut staging_name = name.to_os_string();
-            staging_name.push(".migrating");
+            let mut sibling_name = name.to_os_string();
+            sibling_name.push(suffix);
             match dest.parent() {
-                Some(parent) => parent.join(staging_name),
-                None => PathBuf::from(staging_name),
+                Some(parent) => parent.join(sibling_name),
+                None => PathBuf::from(sibling_name),
             }
         }
-        None => dest.with_extension("migrating"),
+        None => dest.with_extension(suffix.trim_start_matches('.')),
     }
 }
 
-fn migrate_via_staging(legacy_dir: &Path, new_dir: &Path, staging: &Path) -> std::io::Result<()> {
-    if staging.exists() {
-        fs::remove_dir_all(staging)?;
+fn migration_staging_dir(dest: &Path) -> PathBuf {
+    sibling_with_suffix(dest, ".migrating")
+}
+
+fn migration_lock_path(dest: &Path) -> PathBuf {
+    sibling_with_suffix(dest, ".migrating.lock")
+}
+
+fn remove_path_all(path: &Path) -> std::io::Result<()> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error),
+    };
+    if metadata.is_dir() {
+        fs::remove_dir_all(path)
+    } else {
+        fs::remove_file(path)
     }
+}
+
+fn lock_migration(lock_path: &Path) -> std::io::Result<fs::File> {
+    if let Some(parent) = lock_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        fs::create_dir_all(parent)?;
+    }
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(lock_path)?;
+    file.lock_exclusive()?;
+    Ok(file)
+}
+
+fn migrate_via_staging(legacy_dir: &Path, new_dir: &Path, staging: &Path) -> std::io::Result<()> {
+    remove_path_all(staging)?;
     copy_dir_all(legacy_dir, staging)?;
     if dir_is_populated(new_dir) {
-        let _ = fs::remove_dir_all(staging);
+        let _ = remove_path_all(staging);
         return Ok(());
     }
     if new_dir.exists() {
         match fs::remove_dir(new_dir) {
             Ok(()) => {}
             Err(_) if dir_is_populated(new_dir) => {
-                let _ = fs::remove_dir_all(staging);
+                let _ = remove_path_all(staging);
                 return Ok(());
             }
             Err(error) => return Err(error),
@@ -114,6 +151,24 @@ fn maybe_migrate_dir(new_dir: &Path, legacy_dir: &Path) {
         return;
     }
 
+    let lock_path = migration_lock_path(new_dir);
+    let _file_lock = match lock_migration(&lock_path) {
+        Ok(file) => file,
+        Err(error) => {
+            tracing::warn!(
+                "Failed to lock migration of {} to {}: {error}",
+                legacy_dir.display(),
+                new_dir.display()
+            );
+            return;
+        }
+    };
+
+    if dir_is_populated(new_dir) {
+        completed.insert(new_dir.to_path_buf());
+        return;
+    }
+
     let staging = migration_staging_dir(new_dir);
     match migrate_via_staging(legacy_dir, new_dir, &staging) {
         Ok(()) => {
@@ -125,7 +180,7 @@ fn maybe_migrate_dir(new_dir: &Path, legacy_dir: &Path) {
             );
         }
         Err(error) => {
-            let _ = fs::remove_dir_all(&staging);
+            let _ = remove_path_all(&staging);
             tracing::warn!(
                 "Failed to migrate {} to {}: {error}",
                 legacy_dir.display(),
@@ -442,8 +497,8 @@ mod tests {
         fs::create_dir_all(&legacy).unwrap();
         fs::write(legacy.join("secrets.yaml"), "SECRET: keep-me\n").unwrap();
 
-        let staging = super::migration_staging_dir(&PathBuf::from(&xdg_config_s).join("openduck"));
-        fs::write(&staging, "not a directory").unwrap();
+        let dest = PathBuf::from(&xdg_config_s).join("openduck");
+        fs::create_dir_all(super::migration_lock_path(&dest)).unwrap();
 
         let resolved = Paths::config_dir();
         assert_eq!(resolved, legacy);
@@ -451,7 +506,35 @@ mod tests {
             fs::read_to_string(legacy.join("secrets.yaml")).unwrap(),
             "SECRET: keep-me\n"
         );
-        assert!(!PathBuf::from(&xdg_config_s).join("openduck").exists());
+        assert!(!dest.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn config_dir_migrates_after_removing_leftover_staging_file() {
+        let (_tmp, xdg_config_s, xdg_data_s, xdg_state_s) = isolated_xdg();
+        let _guard = env_lock::lock_env([
+            ("OPENDUCK_PATH_ROOT", None::<&str>),
+            ("GOOSE_PATH_ROOT", None::<&str>),
+            ("XDG_CONFIG_HOME", Some(xdg_config_s.as_str())),
+            ("XDG_DATA_HOME", Some(xdg_data_s.as_str())),
+            ("XDG_STATE_HOME", Some(xdg_state_s.as_str())),
+        ]);
+
+        let dest = PathBuf::from(&xdg_config_s).join("openduck");
+        fs::write(super::migration_staging_dir(&dest), "leftover staging file").unwrap();
+
+        let legacy = Paths::legacy_config_dir();
+        fs::create_dir_all(&legacy).unwrap();
+        fs::write(legacy.join("secrets.yaml"), "SECRET: keep-me\n").unwrap();
+
+        let resolved = Paths::config_dir();
+        assert_eq!(resolved, dest);
+        assert_eq!(
+            fs::read_to_string(dest.join("secrets.yaml")).unwrap(),
+            "SECRET: keep-me\n"
+        );
+        assert!(!super::migration_staging_dir(&dest).exists());
     }
 
     #[test]
