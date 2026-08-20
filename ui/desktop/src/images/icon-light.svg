@@ -2,14 +2,9 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="512" y1="0" x2="512" y2="1024" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#33D0C6"/>
-      <stop offset="0.55" stop-color="#128F8A"/>
-      <stop offset="1" stop-color="#0A4A4E"/>
+      <stop offset="0" stop-color="#F7FBFC"/>
+      <stop offset="1" stop-color="#D5E4E5"/>
     </linearGradient>
-    <radialGradient id="glow" cx="512" cy="430" r="420" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#7EEDE4" stop-opacity="0.45"/>
-      <stop offset="1" stop-color="#7EEDE4" stop-opacity="0"/>
-    </radialGradient>
     <linearGradient id="duck" x1="360" y1="180" x2="680" y2="880" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#FFE58A"/>
       <stop offset="0.42" stop-color="#F5C63A"/>
@@ -23,7 +18,6 @@
   </defs>
 
   <rect width="1024" height="1024" rx="228" ry="228" fill="url(#bg)"/>
-  <rect width="1024" height="1024" rx="228" ry="228" fill="url(#glow)"/>
 
   <g transform="translate(512 520)">
     <path fill="url(#duck)" stroke="#163D3C" stroke-width="22" stroke-linejoin="round"
