@@ -5,7 +5,7 @@ import type {
   LocalInferenceModelDownloadRequest_unstable,
   LocalInferenceModelDto,
   LocalInferenceModelSettingsDto,
-} from '@aaif/goose-sdk';
+} from '@openduck/sdk';
 import { getAcpClient } from './acpConnection';
 
 export type LocalModelResponse = LocalInferenceModelDto;

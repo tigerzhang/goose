@@ -387,13 +387,17 @@ export function setupAutoUpdater(tray?: Tray) {
     log.error('Error getting feed URL:', e);
   }
 
-  // Respect GOOSE_DISABLE_AUTO_DOWNLOAD env var (takes precedence over user setting)
+  // Respect OPENDUCK_DISABLE_AUTO_DOWNLOAD / GOOSE_DISABLE_AUTO_DOWNLOAD env var
   const envDisabled =
+    process.env.OPENDUCK_DISABLE_AUTO_DOWNLOAD === '1' ||
+    process.env.OPENDUCK_DISABLE_AUTO_DOWNLOAD === 'true' ||
     process.env.GOOSE_DISABLE_AUTO_DOWNLOAD === '1' ||
     process.env.GOOSE_DISABLE_AUTO_DOWNLOAD === 'true';
   if (envDisabled) {
     autoDownloadDisabled = true;
-    log.info('Auto-download disabled via GOOSE_DISABLE_AUTO_DOWNLOAD environment variable');
+    log.info(
+      'Auto-download disabled via OPENDUCK_DISABLE_AUTO_DOWNLOAD/GOOSE_DISABLE_AUTO_DOWNLOAD environment variable'
+    );
   }
 
   // Configure auto-updater settings
@@ -752,7 +756,7 @@ async function githubAutoDownload(
 function updateTrayIcon(hasUpdate: boolean) {
   if (!trayRef) return;
 
-  if (process.env.GOOSE_VERSION) {
+  if (process.env.OPENDUCK_VERSION || process.env.GOOSE_VERSION) {
     hasUpdate = false;
   }
 
@@ -766,7 +770,7 @@ function updateTrayIcon(hasUpdate: boolean) {
     } else {
       iconPath = path.join(process.resourcesPath, 'images', 'iconTemplateUpdate.png');
     }
-    trayRef.setToolTip('Goose - Update Available');
+    trayRef.setToolTip('OpenDuck - Update Available');
   } else {
     // Use normal icon
     if (isDev) {
@@ -774,7 +778,7 @@ function updateTrayIcon(hasUpdate: boolean) {
     } else {
       iconPath = path.join(process.resourcesPath, 'images', 'iconTemplate.png');
     }
-    trayRef.setToolTip('Goose');
+    trayRef.setToolTip('OpenDuck');
   }
 
   const icon = nativeImage.createFromPath(iconPath);

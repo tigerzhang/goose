@@ -15,22 +15,22 @@ import { defineMessages, useIntl } from '../../../i18n';
 const i18n = defineMessages({
   dialogTitle: {
     id: 'goosehintsModal.dialogTitle',
-    defaultMessage: 'Configure Project Hints (.goosehints)',
+    defaultMessage: 'Configure Project Hints (.openduckhints)',
   },
   dialogDescription: {
     id: 'goosehintsModal.dialogDescription',
     defaultMessage:
-      'Provide additional context about your project to improve communication with Goose',
+      'Provide additional context about your project to improve communication with OpenDuck',
   },
   helpText1: {
     id: 'goosehintsModal.helpText1',
     defaultMessage:
-      '.goosehints is a text file used to provide additional context about your project and improve the communication with Goose.',
+      '.openduckhints is a text file used to provide additional context about your project and improve the communication with OpenDuck. Legacy .goosehints files are still read.',
   },
   helpText2: {
     id: 'goosehintsModal.helpText2',
     defaultMessage:
-      "Please make sure {bold} extension is enabled in the extensions page. This extension is required to use .goosehints. You'll need to restart your session for .goosehints updates to take effect.",
+      "Please make sure {bold} extension is enabled in the extensions page. This extension is required to use .openduckhints (or .goosehints). You'll need to restart your session for hint file updates to take effect.",
   },
   helpText3: {
     id: 'goosehintsModal.helpText3',

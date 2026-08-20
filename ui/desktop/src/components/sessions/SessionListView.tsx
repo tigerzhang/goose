@@ -53,7 +53,7 @@ import {
   acpShareSessionNostr,
   type SessionListItem,
 } from '../../acp/sessions';
-import type { SessionExportFormat } from '@aaif/goose-sdk';
+import type { SessionExportFormat } from '@openduck/sdk';
 import { acpChatSessionActions } from '../../acp/chatSessionStore';
 import { cancelAcpPermissionRequestsForSession } from '../../acp/permissionRequests';
 import { cancelAcpElicitationRequestsForSession } from '../../acp/elicitationRequests';
@@ -82,16 +82,16 @@ const i18n = defineMessages({
   importNostrTitle: { id: 'sessions.importNostr.title', defaultMessage: 'Import Nostr Session' },
   importNostrDesc: {
     id: 'sessions.importNostr.description',
-    defaultMessage: 'Paste a Goose Nostr share link to fetch, decrypt, and import the session.',
+    defaultMessage: 'Paste an OpenDuck Nostr share link to fetch, decrypt, and import the session.',
   },
   importNostrPlaceholder: {
     id: 'sessions.importNostr.placeholder',
-    defaultMessage: 'goose://sessions/nostr?nevent=...&key=...',
+    defaultMessage: 'openduck://sessions/nostr?nevent=...&key=... (goose:// still works)',
   },
   importing: { id: 'sessions.importing', defaultMessage: 'Importing...' },
   chatHistoryDesc: {
     id: 'sessions.chatHistoryDesc',
-    defaultMessage: 'View and search your past conversations with Goose. {shortcut} to search.',
+    defaultMessage: 'View and search your past conversations with OpenDuck. {shortcut} to search.',
   },
   searchPlaceholder: { id: 'sessions.searchPlaceholder', defaultMessage: 'Search history...' },
   errorLoading: { id: 'sessions.error.loading', defaultMessage: 'Error Loading Sessions' },

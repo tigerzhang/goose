@@ -19,7 +19,7 @@ check-everything:
 # Default release command
 release-binary:
     @echo "Building release version..."
-    cargo build --release -p openduck-cli --bin goose
+    cargo build --release -p openduck-cli --bin openduck --bin goose
     @just copy-binary
 
 # Build Windows executable on a Windows host
@@ -40,24 +40,36 @@ release-intel:
 
 copy-binary BUILD_MODE="release":
     @rm -f ./ui/desktop/src/bin/goosed
-    @if [ -f ./target/{{BUILD_MODE}}/goose ]; then \
+    @if [ -f ./target/{{BUILD_MODE}}/openduck ]; then \
+        echo "Copying openduck CLI binary from target/{{BUILD_MODE}}..."; \
+        rm -f ./ui/desktop/src/bin/openduck ./ui/desktop/src/bin/goose; \
+        cp -p ./target/{{BUILD_MODE}}/openduck ./ui/desktop/src/bin/; \
+        cp -p ./target/{{BUILD_MODE}}/openduck ./ui/desktop/src/bin/goose; \
+    elif [ -f ./target/{{BUILD_MODE}}/goose ]; then \
         echo "Copying goose CLI binary from target/{{BUILD_MODE}}..."; \
-        rm -f ./ui/desktop/src/bin/goose; \
+        rm -f ./ui/desktop/src/bin/openduck ./ui/desktop/src/bin/goose; \
         cp -p ./target/{{BUILD_MODE}}/goose ./ui/desktop/src/bin/; \
+        cp -p ./target/{{BUILD_MODE}}/goose ./ui/desktop/src/bin/openduck; \
     else \
-        echo "goose CLI binary not found in target/{{BUILD_MODE}}"; \
+        echo "openduck/goose CLI binary not found in target/{{BUILD_MODE}}"; \
         exit 1; \
     fi
 
 # Copy binary command for Intel build
 copy-binary-intel:
     @rm -f ./ui/desktop/src/bin/goosed
-    @if [ -f ./target/x86_64-apple-darwin/release/goose ]; then \
+    @if [ -f ./target/x86_64-apple-darwin/release/openduck ]; then \
+        echo "Copying Intel openduck CLI binary to ui/desktop/src/bin..."; \
+        rm -f ./ui/desktop/src/bin/openduck ./ui/desktop/src/bin/goose; \
+        cp -p ./target/x86_64-apple-darwin/release/openduck ./ui/desktop/src/bin/; \
+        cp -p ./target/x86_64-apple-darwin/release/openduck ./ui/desktop/src/bin/goose; \
+    elif [ -f ./target/x86_64-apple-darwin/release/goose ]; then \
         echo "Copying Intel goose CLI binary to ui/desktop/src/bin..."; \
-        rm -f ./ui/desktop/src/bin/goose; \
+        rm -f ./ui/desktop/src/bin/openduck ./ui/desktop/src/bin/goose; \
         cp -p ./target/x86_64-apple-darwin/release/goose ./ui/desktop/src/bin/; \
+        cp -p ./target/x86_64-apple-darwin/release/goose ./ui/desktop/src/bin/openduck; \
     else \
-        echo "Intel goose CLI binary not found."; \
+        echo "Intel openduck/goose CLI binary not found."; \
         exit 1; \
     fi
 
@@ -69,11 +81,17 @@ copy-binary-windows:
 
 [windows]
 copy-binary-windows:
-    @powershell.exe -NoProfile -ExecutionPolicy Bypass -Command 'if (Test-Path ./target/x86_64-pc-windows-msvc/release/goose.exe) { \
+    @powershell.exe -NoProfile -ExecutionPolicy Bypass -Command 'if ((Test-Path ./target/x86_64-pc-windows-msvc/release/openduck.exe) -or (Test-Path ./target/x86_64-pc-windows-msvc/release/goose.exe)) { \
         Write-Host "Copying Windows binary to ui/desktop/src/bin..."; \
         New-Item -ItemType Directory -Force "./ui/desktop/src/bin" | Out-Null; \
         Remove-Item -Path "./ui/desktop/src/bin/goosed.exe" -Force -ErrorAction SilentlyContinue; \
-        Copy-Item -Path "./target/x86_64-pc-windows-msvc/release/goose.exe" -Destination "./ui/desktop/src/bin/" -Force; \
+        if (Test-Path "./target/x86_64-pc-windows-msvc/release/openduck.exe") { \
+            Copy-Item -Path "./target/x86_64-pc-windows-msvc/release/openduck.exe" -Destination "./ui/desktop/src/bin/" -Force; \
+            Copy-Item -Path "./target/x86_64-pc-windows-msvc/release/openduck.exe" -Destination "./ui/desktop/src/bin/goose.exe" -Force; \
+        } else { \
+            Copy-Item -Path "./target/x86_64-pc-windows-msvc/release/goose.exe" -Destination "./ui/desktop/src/bin/" -Force; \
+            Copy-Item -Path "./target/x86_64-pc-windows-msvc/release/goose.exe" -Destination "./ui/desktop/src/bin/openduck.exe" -Force; \
+        }; \
     } else { \
         Write-Host "Windows binary not found." -ForegroundColor Red; \
         exit 1; \

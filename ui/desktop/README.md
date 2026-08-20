@@ -1,6 +1,6 @@
-# goose Desktop App
+# OpenDuck Desktop App
 
-Native desktop app for goose built with [Electron](https://www.electronjs.org/) and [ReactJS](https://react.dev/). 
+Native desktop app for OpenDuck built with [Electron](https://www.electronjs.org/) and [ReactJS](https://react.dev/). 
 
 # Building and running
 goose uses [Hermit](https://github.com/cashapp/hermit) to manage dependencies, so you will need to have it installed and activated.
@@ -36,7 +36,7 @@ sudo dnf install dpkg-dev fakeroot
 
 # Building notes
 
-This is an Electron Forge app using Vite and React. The desktop app launches the bundled `goose` CLI binary and talks to its ACP server.
+This is an Electron Forge app using Vite and React. The desktop app launches the bundled `openduck` CLI binary (legacy `goose` alias) and talks to its ACP server.
 
 ## Building for different platforms
 

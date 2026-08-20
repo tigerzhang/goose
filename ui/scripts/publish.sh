@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Builds and publishes all @aaif npm packages:
-#   @aaif/goose-sdk            — ACP TypeScript SDK
-#   @aaif/goose-binary-*       — platform-specific goose CLI binaries
+# Builds and publishes frontend npm packages:
+#   @openduck/sdk              — ACP TypeScript SDK (legacy: @aaif/goose-sdk)
+#   @aaif/goose-binary-*       — platform-specific openduck/goose CLI binaries
 #
-# NOTE: @aaif/goose (the terminal TUI, formerly ui/text) is DEPRECATED and no
-# longer built or published. See ui/text/README.md.
+# NOTE: @openduck/openduck / @aaif/goose (the terminal TUI, formerly ui/text)
+# is DEPRECATED and no longer built or published. See ui/text/README.md.
 #
 # Linux binaries are built inside Docker containers on their native arch.
 # macOS binaries are built natively (requires macOS host with Rust).
@@ -172,7 +172,7 @@ done
 # Step 4: Build TypeScript packages
 # ---------------------------------------------------------------------------
 echo ""
-echo "==> Building @aaif/goose-sdk"
+echo "==> Building @openduck/sdk"
 (cd "${SDK_DIR}" && pnpm run build:ts)
 
 # ---------------------------------------------------------------------------
@@ -208,7 +208,7 @@ cleanup_npmrc() {
 trap cleanup_npmrc EXIT
 
 # Publish order matters: dependencies first
-echo "==> Publishing @aaif/goose-sdk"
+echo "==> Publishing @openduck/sdk"
 (cd "${REPO_ROOT}/ui" && pnpm publish "${PUBLISH_ARGS[@]}" sdk)
 
 echo "==> Publishing native binary packages"

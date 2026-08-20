@@ -1,7 +1,7 @@
 import type {
   GetPromptResponse_unstable,
   PromptTemplateEntry,
-} from '@aaif/goose-sdk';
+} from '@openduck/sdk';
 import { getAcpClient } from './acpConnection';
 
 export type PromptTemplate = PromptTemplateEntry;

@@ -28,14 +28,19 @@ echo $dir
 
 # On macOS, use the .app bundle
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    # Assuming Goose.app is installed in /Applications
-    if [ -d "/Applications/Goose.app" ]; then
+    if [ -d "/Applications/OpenDuck.app" ]; then
+        /Applications/OpenDuck.app/Contents/MacOS/OpenDuck --args --dir "$dir"
+    elif [ -d "/Applications/Goose.app" ]; then
         /Applications/Goose.app/Contents/MacOS/Goose --args --dir "$dir"
     else
-        echo "Error: Goose.app not found in /Applications"
+        echo "Error: OpenDuck.app not found in /Applications"
         exit 1
     fi
 else
     # For Linux, assuming the binary is installed in the PATH
-    goose-app --dir "$dir"
+    if command -v openduck-app >/dev/null 2>&1; then
+        openduck-app --dir "$dir"
+    else
+        goose-app --dir "$dir"
+    fi
 fi

@@ -269,7 +269,7 @@ import {
   zUpdateSourceResponse_unstable,
 } from './zod.gen.js';
 
-export class GooseExtClient {
+export class OpenDuckExtClient {
   constructor(private conn: Pick<ClientContext, "request">) {}
 
   async sessionExtensionsAdd_unstable(
@@ -1415,3 +1415,5 @@ export class GooseExtClient {
     ) as LocalInferenceBuiltinChatTemplatesListResponse_unstable;
   }
 }
+
+export { OpenDuckExtClient as GooseExtClient };

@@ -6,10 +6,10 @@
 // publish.
 //
 // Run with:
-//   GOOSE_BINARY=/path/to/goose node ui/sdk/scripts/check-binary-compat.mjs
+//   OPENDUCK_BINARY=/path/to/openduck node ui/sdk/scripts/check-binary-compat.mjs
 //
 // Or via package script:
-//   GOOSE_BINARY=/path/to/goose pnpm --filter @aaif/goose-sdk run check:compat
+//   OPENDUCK_BINARY=/path/to/openduck pnpm --filter @openduck/sdk run check:compat
 
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, existsSync, statSync } from "node:fs";
@@ -27,15 +27,16 @@ if (!existsSync(SDK_DIST)) {
   process.exit(1);
 }
 
-const GOOSE_BINARY = process.env.GOOSE_BINARY;
+const GOOSE_BINARY = process.env.OPENDUCK_BINARY ?? process.env.GOOSE_BINARY;
 if (!GOOSE_BINARY || !existsSync(GOOSE_BINARY)) {
   console.error(
-    `[compat] GOOSE_BINARY must point to a built goose binary (got: ${GOOSE_BINARY ?? "<unset>"})`,
+    `[compat] OPENDUCK_BINARY (or GOOSE_BINARY) must point to a built openduck binary (got: ${GOOSE_BINARY ?? "<unset>"})`,
   );
   process.exit(1);
 }
 
-const { GooseExtClient } = await import(join(SDK_DIST, "index.js"));
+const { OpenDuckClient, GooseExtClient } = await import(join(SDK_DIST, "index.js"));
+const ExtClient = OpenDuckClient ?? GooseExtClient;
 const {
   client: createAcpClient,
   methods,
@@ -134,7 +135,7 @@ const app = createAcpClient({ name: "publish-npm-compat" })
 const connection = app.connect(stream);
 const client = {
   connection,
-  goose: new GooseExtClient(connection.agent),
+  goose: new ExtClient(connection.agent),
 };
 
 let failed = 0;

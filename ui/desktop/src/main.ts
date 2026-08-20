@@ -32,6 +32,8 @@ import { getLoginShellPath } from './loginShellPath';
 import { GooseServeLeaseRegistry, type GooseServeLease } from './gooseServeLeaseRegistry';
 import { acpWebSocketUrlFromHttpBase, normalizeAcpHttpBaseUrl } from './acp/url';
 import { expandTilde, sanitizeGoosePathRoot } from './utils/pathUtils';
+import { APP_PROTOCOL_SCHEMES, isAppProtocolUrl } from './protocol';
+import { applyPrefixedEnv, getPrefixedEnv, getPrefixedEnvFlag } from './env';
 import log from './utils/logger';
 import { ensureWinShims } from './utils/winShims';
 import { addRecentDir, loadRecentDirs } from './utils/recentDirs';
@@ -92,7 +94,7 @@ const MENU_TRANSLATIONS_ZH_CN: Record<string, string> = {
   Cut: '剪切',
   Copy: '复制',
   Paste: '粘贴',
-  // Goose-added items
+  // OpenDuck-added items
   'New Window': '新建窗口',
   Settings: '设置',
   'Find…': '查找…',
@@ -104,11 +106,11 @@ const MENU_TRANSLATIONS_ZH_CN: Record<string, string> = {
   'New Chat Window': '新建聊天窗口',
   'Open Directory...': '打开目录…',
   'Recent Directories': '最近的目录',
-  'Focus Goose Window': '聚焦 Goose 窗口',
+  'Focus OpenDuck Window': '聚焦 OpenDuck 窗口',
   'Quick Launcher': '快速启动器',
   'Always on Top': '窗口置顶',
   'Toggle Navigation': '切换导航',
-  'About Goose': '关于 Goose',
+  'About OpenDuck': '关于 OpenDuck',
   // Electron's default role-based labels we want to translate as well.
   // (The menu role itself still provides the correct behaviour; only the
   // display string is overridden.)
@@ -134,7 +136,7 @@ const MENU_TRANSLATIONS_ZH_CN: Record<string, string> = {
   'Bring All to Front': '全部置于最前',
   'Emoji & Symbols': '表情符号',
   'Start Dictation…': '开始听写…',
-  'Hide Goose': '隐藏 Goose',
+  'Hide OpenDuck': '隐藏 OpenDuck',
   'Hide Others': '隐藏其他',
   'Show All': '全部显示',
   Services: '服务',
@@ -241,8 +243,9 @@ function getConfiguredGooseLocale(): string | undefined {
     return language;
   }
 
-  if (process.env.GOOSE_LOCALE) {
-    return process.env.GOOSE_LOCALE;
+  const localeOverride = getPrefixedEnv('LOCALE');
+  if (localeOverride) {
+    return localeOverride;
   }
 
   try {
@@ -426,25 +429,33 @@ if (process.env.ENABLE_PLAYWRIGHT) {
 
 // In development mode, force registration as the default protocol client
 // In production, register normally
+function registerAppProtocolClients(): void {
+  for (const scheme of APP_PROTOCOL_SCHEMES) {
+    app.setAsDefaultProtocolClient(scheme);
+  }
+}
+
 if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
   // Development mode - force registration
-  console.log('[Main] Development mode: Forcing protocol registration for goose://');
-  app.setAsDefaultProtocolClient('goose');
+  console.log('[Main] Development mode: Forcing protocol registration for openduck:// and goose://');
+  registerAppProtocolClients();
 
   if (process.platform === 'darwin') {
     try {
       // Reset the default handler to ensure dev version takes precedence
-      spawn('open', ['-a', process.execPath, '--args', '--reset-protocol-handler', 'goose'], {
-        detached: true,
-        stdio: 'ignore',
-      });
+      for (const scheme of APP_PROTOCOL_SCHEMES) {
+        spawn('open', ['-a', process.execPath, '--args', '--reset-protocol-handler', scheme], {
+          detached: true,
+          stdio: 'ignore',
+        });
+      }
     } catch {
       console.warn('[Main] Could not reset protocol handler');
     }
   }
 } else {
   // Production mode - normal registration
-  app.setAsDefaultProtocolClient('goose');
+  registerAppProtocolClients();
 }
 
 // Apply single instance lock on Windows and Linux where it's needed for deep links
@@ -458,7 +469,7 @@ if (process.platform !== 'darwin') {
     app.quit();
   } else {
     app.on('second-instance', (_event, commandLine) => {
-      const protocolUrl = commandLine.find((arg) => arg.startsWith('goose://'));
+      const protocolUrl = commandLine.find((arg) => isAppProtocolUrl(arg));
       if (protocolUrl) {
         const parsedUrl = new URL(protocolUrl);
         // If it's a bot/recipe URL, handle it directly by creating a new window
@@ -527,7 +538,7 @@ if (process.platform !== 'darwin') {
   }
 
   // Handle protocol URLs on Windows and Linux startup
-  const protocolUrl = process.argv.find((arg) => arg.startsWith('goose://'));
+  const protocolUrl = process.argv.find((arg) => isAppProtocolUrl(arg));
   if (protocolUrl) {
     app.whenReady().then(async () => {
       let parsedUrl: URL;
@@ -625,7 +636,7 @@ function getResumeSessionId(parsedUrl: URL): string | null {
 async function createResumeChatWindow(parsedUrl: URL, dir?: string): Promise<boolean> {
   const resumeSessionId = getResumeSessionId(parsedUrl);
   if (!resumeSessionId) {
-    log.warn('[Main] Ignoring goose://resume URL without a session id');
+    log.warn('[Main] Ignoring openduck:// or goose:// resume URL without a session id');
     return false;
   }
 
@@ -779,7 +790,7 @@ app.on('open-url', async (_event, url) => {
 app.on('will-finish-launching', () => {
   if (process.platform === 'darwin') {
     app.setAboutPanelOptions({
-      applicationName: 'Goose',
+      applicationName: 'OpenDuck',
       applicationVersion: app.getVersion(),
     });
   }
@@ -834,7 +845,7 @@ async function handleFileOpen(filePath: string) {
 
     // Show user-friendly error notification
     new Notification({
-      title: 'Goose',
+      title: 'OpenDuck',
       body: `Could not open directory: ${path.basename(filePath)}`,
     }).show();
   }
@@ -885,13 +896,13 @@ interface BundledConfig {
 
 const getBundledConfig = (): BundledConfig => {
   //{env-macro-start}//
-  //needed when goose is bundled for a specific provider
+  //needed when OpenDuck is bundled for a specific provider
   //{env-macro-end}//
   return {
-    defaultProvider: process.env.GOOSE_DEFAULT_PROVIDER,
-    defaultModel: process.env.GOOSE_DEFAULT_MODEL,
-    predefinedModels: process.env.GOOSE_PREDEFINED_MODELS,
-    version: process.env.GOOSE_VERSION,
+    defaultProvider: getPrefixedEnv('DEFAULT_PROVIDER'),
+    defaultModel: getPrefixedEnv('DEFAULT_MODEL'),
+    predefinedModels: getPrefixedEnv('PREDEFINED_MODELS'),
+    version: getPrefixedEnv('VERSION'),
   };
 };
 
@@ -908,16 +919,16 @@ interface ExternalBackend {
 }
 
 const getExternalBackendUrlFromEnv = (): string | null => {
-  if (!process.env.GOOSE_EXTERNAL_BACKEND) {
+  if (!getPrefixedEnv('EXTERNAL_BACKEND')) {
     return null;
   }
 
-  const configuredUrl = process.env.GOOSE_EXTERNAL_BACKEND_URL?.trim();
+  const configuredUrl = getPrefixedEnv('EXTERNAL_BACKEND_URL')?.trim();
   if (configuredUrl) {
     return configuredUrl;
   }
 
-  return `http://127.0.0.1:${process.env.GOOSE_PORT || '3000'}`;
+  return `http://127.0.0.1:${getPrefixedEnv('PORT') || '3000'}`;
 };
 
 const getExternalBackendFromEnv = (): ExternalBackend | null => {
@@ -926,10 +937,10 @@ const getExternalBackendFromEnv = (): ExternalBackend | null => {
     return null;
   }
 
-  const secret = process.env.GOOSE_SERVER__SECRET_KEY;
+  const secret = process.env.OPENDUCK_SERVER__SECRET_KEY ?? process.env.GOOSE_SERVER__SECRET_KEY;
   if (!secret) {
     throw new Error(
-      'GOOSE_SERVER__SECRET_KEY must be set when using GOOSE_EXTERNAL_BACKEND. ' +
+      'OPENDUCK_SERVER__SECRET_KEY (or GOOSE_SERVER__SECRET_KEY) must be set when using OPENDUCK_EXTERNAL_BACKEND. ' +
         'Set it to the same value on both the server and the desktop client.'
     );
   }
@@ -991,10 +1002,10 @@ let appConfig = {
   GOOSE_WORKING_DIR: '',
   // Start with the env-var override; the OS region locale is filled in after app.ready
   // (see updateLocaleFromSystem below) since getSystemLocale() cannot be called earlier.
-  GOOSE_LOCALE: process.env.GOOSE_LOCALE || undefined,
-  // If GOOSE_ALLOWLIST_WARNING env var is not set, defaults to false (strict blocking mode)
-  GOOSE_ALLOWLIST_WARNING: process.env.GOOSE_ALLOWLIST_WARNING === 'true',
-  GOOSE_DISABLE_NOSTR_SHARING: process.env.GOOSE_DISABLE_NOSTR_SHARING === 'true',
+  GOOSE_LOCALE: getPrefixedEnv('LOCALE') || undefined,
+  // If OPENDUCK_ALLOWLIST_WARNING/GOOSE_ALLOWLIST_WARNING is not set, defaults to false (strict blocking mode)
+  GOOSE_ALLOWLIST_WARNING: getPrefixedEnvFlag('ALLOWLIST_WARNING'),
+  GOOSE_DISABLE_NOSTR_SHARING: getPrefixedEnvFlag('DISABLE_NOSTR_SHARING'),
 };
 
 const windowMap = new Map<number, BrowserWindow>();
@@ -1141,7 +1152,7 @@ const createChat = async (
           title: 'External Backend Unreachable',
           message: `Could not connect to external backend at ${externalBaseUrl}`,
           detail:
-            'The external backend must be running and the configured secret must match GOOSE_SERVER__SECRET_KEY on the server.',
+            'The external backend must be running and the configured secret must match OPENDUCK_SERVER__SECRET_KEY (or GOOSE_SERVER__SECRET_KEY) on the server.',
           buttons: canDisableExternalBackend
             ? ['Disable External Backend & Retry', 'Quit']
             : ['Quit'],
@@ -1208,9 +1219,11 @@ const createChat = async (
         serverSecret,
         dir: workingDir,
         tls: true,
-        env: {
-          GOOSE_PATH_ROOT: appConfig.GOOSE_PATH_ROOT as string | undefined,
-        },
+        env: (() => {
+          const env: Record<string, string | undefined> = {};
+          applyPrefixedEnv(env, 'PATH_ROOT', appConfig.GOOSE_PATH_ROOT as string | undefined);
+          return env;
+        })(),
         loginShellPath,
         isPackaged: app.isPackaged,
         resourcesPath: app.isPackaged ? process.resourcesPath : undefined,
@@ -1239,10 +1252,10 @@ const createChat = async (
       log.error('goose serve failed to start', error);
       dialog.showMessageBoxSync({
         type: 'error',
-        title: 'Goose Failed to Start',
+        title: 'OpenDuck Failed to Start',
         message: 'The backend server failed to start.',
         detail: [
-          'Backend: goose serve',
+          'Backend: openduck serve',
           'Readiness check: HTTPS GET /status',
           `Startup error:\n${errorMessage(error)}`,
         ].join('\n\n'),
@@ -1466,7 +1479,7 @@ const createChat = async (
     }
   }
 
-  // Goose's react app uses HashRouter, so the path + search params follow a #/
+  // OpenDuck's react app uses HashRouter, so the path + search params follow a #/
   url.hash = `${appPath}?${searchParams.toString()}`;
   let formattedUrl = formatUrl(url);
   log.info('Opening URL: ', formattedUrl);
@@ -2561,7 +2574,7 @@ async function appMain() {
 
   const shortcuts = getKeyboardShortcuts(settings);
 
-  const appMenu = menu?.items.find((item) => item.label === 'Goose');
+  const appMenu = menu?.items.find((item) => item.label === 'OpenDuck' || item.label === 'Goose');
   if (appMenu?.submenu) {
     appMenu.submenu.insert(1, new MenuItem({ type: 'separator' }));
     if (shortcuts.settings) {
@@ -2689,7 +2702,7 @@ async function appMain() {
     if (shortcuts.focusWindow) {
       fileMenu.submenu.append(
         new MenuItem({
-          label: menuT('Focus Goose Window'),
+          label: menuT('Focus OpenDuck Window'),
           accelerator: shortcuts.focusWindow,
           click() {
             focusWindow();
@@ -2796,15 +2809,15 @@ async function appMain() {
         helpMenu.submenu.append(new MenuItem({ type: 'separator' }));
       }
 
-      // Create the About Goose menu item with a submenu
-      const aboutGooseMenuItem = new MenuItem({
-        label: menuT('About Goose'),
+      // Create the About OpenDuck menu item with a submenu
+      const aboutOpenDuckMenuItem = new MenuItem({
+        label: menuT('About OpenDuck'),
         submenu: Menu.buildFromTemplate([]), // Start with an empty submenu for About
       });
 
-      // Add the Version menu item (display only) to the About Goose submenu
-      if (aboutGooseMenuItem.submenu) {
-        aboutGooseMenuItem.submenu.append(
+      // Add the Version menu item (display only) to the About OpenDuck submenu
+      if (aboutOpenDuckMenuItem.submenu) {
+        aboutOpenDuckMenuItem.submenu.append(
           new MenuItem({
             label: `Version ${version || app.getVersion()}`,
             enabled: false,
@@ -2812,7 +2825,7 @@ async function appMain() {
         );
       }
 
-      helpMenu.submenu.append(aboutGooseMenuItem);
+      helpMenu.submenu.append(aboutOpenDuckMenuItem);
     }
   }
 
@@ -3139,17 +3152,18 @@ app.whenReady().then(async () => {
   try {
     await appMain();
   } catch (error) {
-    dialog.showErrorBox('Goose Error', `Failed to create main window: ${error}`);
+    dialog.showErrorBox('OpenDuck Error', `Failed to create main window: ${error}`);
     app.quit();
   }
 });
 
 async function getAllowList(): Promise<string[]> {
-  if (!process.env.GOOSE_ALLOWLIST) {
+  const allowlistUrl = getPrefixedEnv('ALLOWLIST');
+  if (!allowlistUrl) {
     return [];
   }
 
-  const response = await fetch(process.env.GOOSE_ALLOWLIST);
+  const response = await fetch(allowlistUrl);
 
   if (!response.ok) {
     throw new Error(

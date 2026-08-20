@@ -1,4 +1,4 @@
-import type { ToolListItem, ToolPermissionEntry, ToolPermissionLevel } from '@aaif/goose-sdk';
+import type { ToolListItem, ToolPermissionEntry, ToolPermissionLevel } from '@openduck/sdk';
 import { getAcpClient } from './acpConnection';
 
 export type { ToolListItem, ToolPermissionEntry, ToolPermissionLevel };

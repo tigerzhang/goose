@@ -46,11 +46,17 @@ export function isAbsoluteGoosePath(
   return path.win32.isAbsolute(filePath) && root.length > 1;
 }
 
-export function sanitizeGoosePathRoot(env: { GOOSE_PATH_ROOT?: string }): string | undefined {
-  const pathRoot = resolveGoosePathRoot(env.GOOSE_PATH_ROOT);
+export function sanitizeGoosePathRoot(env: {
+  OPENDUCK_PATH_ROOT?: string;
+  GOOSE_PATH_ROOT?: string;
+}): string | undefined {
+  const pathRoot =
+    resolveGoosePathRoot(env.OPENDUCK_PATH_ROOT) ?? resolveGoosePathRoot(env.GOOSE_PATH_ROOT);
   if (pathRoot) {
+    env.OPENDUCK_PATH_ROOT = pathRoot;
     env.GOOSE_PATH_ROOT = pathRoot;
   } else {
+    delete env.OPENDUCK_PATH_ROOT;
     delete env.GOOSE_PATH_ROOT;
   }
   return pathRoot;

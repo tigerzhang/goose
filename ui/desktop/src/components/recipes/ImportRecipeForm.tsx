@@ -11,6 +11,7 @@ import { getRecipeJsonSchema } from '../../recipe/validation';
 import { saveRecipe } from '../../recipe/recipe_management';
 import { errorMessage } from '../../utils/conversionUtils';
 import { defineMessages, useIntl } from '../../i18n';
+import { isRecipeConfigDeeplink } from '../../protocol';
 
 const i18n = defineMessages({
   importRecipeTitle: {
@@ -23,11 +24,11 @@ const i18n = defineMessages({
   },
   deeplinkPlaceholder: {
     id: 'importRecipeForm.deeplinkPlaceholder',
-    defaultMessage: 'Paste your goose://recipe?config=... deeplink here',
+    defaultMessage: 'Paste your openduck://recipe?config=... or goose://recipe?config=... deeplink here',
   },
   deeplinkHint: {
     id: 'importRecipeForm.deeplinkHint',
-    defaultMessage: 'Paste a recipe deeplink starting with "goose://recipe?config="',
+    defaultMessage: 'Paste a recipe deeplink starting with "openduck://recipe?config=" or "goose://recipe?config="',
   },
   or: {
     id: 'importRecipeForm.or',
@@ -47,7 +48,7 @@ const i18n = defineMessages({
   },
   reviewWarning: {
     id: 'importRecipeForm.reviewWarning',
-    defaultMessage: 'Ensure you review contents of recipe files before adding them to your goose interface.',
+    defaultMessage: 'Ensure you review contents of recipe files before adding them to your OpenDuck interface.',
   },
   cancel: {
     id: 'importRecipeForm.cancel',
@@ -83,8 +84,8 @@ const importRecipeSchema = z
     deeplink: z
       .string()
       .refine(
-        (value) => !value || value.trim().startsWith('goose://recipe?config='),
-        'Invalid deeplink format. Expected: goose://recipe?config=...'
+        (value) => !value || isRecipeConfigDeeplink(value),
+        'Invalid deeplink format. Expected: openduck://recipe?config=... (goose:// still accepted)'
       ),
     recipeUploadFile: z
       .instanceof(File)

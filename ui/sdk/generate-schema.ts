@@ -224,10 +224,12 @@ ${upstreamImportLine}
 ${typeImportLine}
 ${zodImportLine}
 
-export class GooseExtClient {
+export class OpenDuckExtClient {
   constructor(private conn: Pick<ClientContext, "request">) {}
 ${methodDefs.join("\n")}
 }
+
+export { OpenDuckExtClient as GooseExtClient };
 `;
 
   src = await prettier.format(src, { parser: "typescript" });

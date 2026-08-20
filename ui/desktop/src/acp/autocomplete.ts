@@ -1,4 +1,4 @@
-import type { AgentMention, AvailableCommand } from '@aaif/goose-sdk';
+import type { AgentMention, AvailableCommand } from '@openduck/sdk';
 import type { DisplayItem } from '../components/MentionPopover';
 import { getAcpClient } from './acpConnection';
 

@@ -71,3 +71,6 @@ export const DEFAULT_GOOSE_MCP_HOST_CAPABILITIES: GooseMcpHostCapabilities = {
     },
   },
 };
+
+export const DEFAULT_OPENDUCK_MCP_HOST_CAPABILITIES =
+  DEFAULT_GOOSE_MCP_HOST_CAPABILITIES;

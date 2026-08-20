@@ -15,8 +15,8 @@ export interface Logger {
 }
 
 export const defaultLogger: Logger = {
-  info: (...args) => console.log('[goose-serve]', ...args),
-  error: (...args) => console.error('[goose-serve]', ...args),
+  info: (...args) => console.log('[openduck-serve]', ...args),
+  error: (...args) => console.error('[openduck-serve]', ...args),
 };
 
 export interface FindGooseBinaryOptions {
@@ -64,31 +64,35 @@ const existingFile = (candidate: string): boolean => {
 
 export const findGooseBinaryPath = (options: FindGooseBinaryOptions = {}): string => {
   const { isPackaged = false, resourcesPath } = options;
-  const pathFromEnv = process.env.GOOSE_BINARY;
+  const pathFromEnv = process.env.OPENDUCK_BINARY ?? process.env.GOOSE_BINARY;
   if (pathFromEnv) {
     if (isPackaged) {
-      throw new Error('GOOSE_BINARY is only supported in development builds');
+      throw new Error('OPENDUCK_BINARY/GOOSE_BINARY is only supported in development builds');
     }
 
     const resolvedPath = path.resolve(pathFromEnv);
     if (existingFile(resolvedPath)) {
       return resolvedPath;
     }
-    throw new Error(`Invalid GOOSE_BINARY path: ${pathFromEnv} (pwd is ${process.cwd()})`);
+    throw new Error(`Invalid OPENDUCK_BINARY/GOOSE_BINARY path: ${pathFromEnv} (pwd is ${process.cwd()})`);
   }
 
-  const binaryName = process.platform === 'win32' ? 'goose.exe' : 'goose';
-  const possiblePaths: string[] = [];
+  const binaryNames =
+    process.platform === 'win32' ? ['openduck.exe', 'goose.exe'] : ['openduck', 'goose'];
+  const searchDirs =
+    isPackaged && resourcesPath
+      ? [path.join(resourcesPath, 'bin'), resourcesPath]
+      : [
+          path.join(process.cwd(), 'src', 'bin'),
+          path.join(process.cwd(), '..', '..', 'target', 'release'),
+          path.join(process.cwd(), '..', '..', 'target', 'debug'),
+        ];
 
-  if (isPackaged && resourcesPath) {
-    possiblePaths.push(path.join(resourcesPath, 'bin', binaryName));
-    possiblePaths.push(path.join(resourcesPath, binaryName));
-  } else {
-    possiblePaths.push(
-      path.join(process.cwd(), 'src', 'bin', binaryName),
-      path.join(process.cwd(), '..', '..', 'target', 'release', binaryName),
-      path.join(process.cwd(), '..', '..', 'target', 'debug', binaryName)
-    );
+  const possiblePaths: string[] = [];
+  for (const dir of searchDirs) {
+    for (const binaryName of binaryNames) {
+      possiblePaths.push(path.join(dir, binaryName));
+    }
   }
 
   for (const candidate of possiblePaths) {
@@ -98,7 +102,7 @@ export const findGooseBinaryPath = (options: FindGooseBinaryOptions = {}): strin
   }
 
   throw new Error(
-    `Goose binary not found in any of the possible paths: ${possiblePaths.join(', ')}`
+    `OpenDuck binary not found in any of the possible paths: ${possiblePaths.join(', ')}`
   );
 };
 
@@ -317,6 +321,7 @@ const buildGooseServeEnv = (
     }
   }
 
+  env.OPENDUCK_SERVER__SECRET_KEY = serverSecret;
   env.GOOSE_SERVER__SECRET_KEY = serverSecret;
 
   return env;
@@ -339,7 +344,7 @@ export const startGooseServe = async ({
   const startupDiagnosticsPath = startupTrace?.diagnosticsPath ?? null;
   const secretKey = serverSecret.trim();
   if (!secretKey) {
-    const message = 'GOOSE_SERVER__SECRET_KEY is required for goose serve';
+    const message = 'OPENDUCK_SERVER__SECRET_KEY is required for openduck serve';
     startupTrace?.record('configuration_error', { message });
     throw new Error(withStartupDiagnosticsPath(message, startupDiagnosticsPath));
   }

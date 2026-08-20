@@ -20,9 +20,10 @@ describe('resolveGoosePathRoot', () => {
   });
 
   it('removes a rejected value from the child-process environment', () => {
-    const env = { GOOSE_PATH_ROOT: 'relative/root' };
+    const env = { GOOSE_PATH_ROOT: 'relative/root', OPENDUCK_PATH_ROOT: 'relative/root' };
     expect(sanitizeGoosePathRoot(env)).toBeUndefined();
     expect(env).not.toHaveProperty('GOOSE_PATH_ROOT');
+    expect(env).not.toHaveProperty('OPENDUCK_PATH_ROOT');
   });
 
   it('matches Rust absolute-path handling on Windows', () => {

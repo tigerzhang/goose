@@ -2,7 +2,7 @@
  * Locale detection and message loading for the i18n system.
  *
  * Locale resolution order:
- *   1. GOOSE_LOCALE config value (manual setting or environment variable, passed through appConfig)
+ *   1. OPENDUCK_LOCALE / GOOSE_LOCALE config value (manual setting or environment variable, passed through appConfig)
  *   2. navigator.languages (full accept-language list from OS/browser)
  *   3. "en" (fallback)
  *

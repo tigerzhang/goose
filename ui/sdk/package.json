@@ -1,13 +1,14 @@
 {
-  "name": "@aaif/goose-sdk",
+  "name": "@openduck/sdk",
   "version": "0.20.2",
-  "description": "Agent Client Protocol (ACP) SDK for Goose AI agent",
+  "description": "Agent Client Protocol (ACP) SDK for the OpenDuck AI agent",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/aaif-goose/goose.git"
   },
   "keywords": [
+    "openduck",
     "goose",
     "ai",
     "agent",

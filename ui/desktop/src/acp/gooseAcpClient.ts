@@ -14,12 +14,12 @@ import {
   type RequestRecipeParams_unstable,
   zGooseSessionNotification_unstable,
   zRequestRecipeParams_unstable,
-} from '@aaif/goose-sdk';
+} from '@openduck/sdk';
 
 const [gooseSessionUpdate] = GOOSE_EXT_NOTIFICATIONS;
 const [gooseRecipeParamsRequest] = GOOSE_EXT_AGENT_REQUESTS;
 
-export type GooseAcpCallbacks = Required<
+export type OpenDuckClientCallbacks = Required<
   Pick<Client, 'requestPermission' | 'sessionUpdate' | 'unstable_createElicitation'>
 > & {
   unstable_sessionRecipeRequestParams: (
@@ -27,6 +27,9 @@ export type GooseAcpCallbacks = Required<
   ) => Promise<RecipeParamsResponse_unstable>;
   unstable_sessionUpdate: (notification: GooseSessionNotification_unstable) => Promise<void>;
 };
+
+export type GooseAcpCallbacks = OpenDuckClientCallbacks;
+export type GooseClientCallbacks = OpenDuckClientCallbacks;
 
 export type GooseAcpClient = {
   connection: ClientConnection;
@@ -37,7 +40,7 @@ export function connectGooseAcpClient(
   stream: Stream,
   callbacks: GooseAcpCallbacks
 ): GooseAcpClient {
-  const app = client({ name: 'goose' })
+  const app = client({ name: 'openduck' })
     .onRequest(methods.client.session.requestPermission, (context) =>
       callbacks.requestPermission(context.params)
     )

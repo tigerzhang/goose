@@ -1,20 +1,23 @@
-# @aaif/goose-sdk
+# @openduck/sdk
 
-TypeScript client library for the Goose Agent Client Protocol (ACP).
+TypeScript client library for the OpenDuck Agent Client Protocol (ACP).
 
 This package provides:
 
-- TypeScript types and Zod validators for Goose ACP extension methods
-- A client for communicating with the Goose ACP server
+- TypeScript types and Zod validators for OpenDuck ACP extension methods
+- A client for communicating with the OpenDuck ACP server
+
+`OpenDuckClient` is the primary client class. `GooseClient` and `GooseExtClient`
+are aliases for backward compatibility.
 
 ## Installation
 
 ```bash
-npm install @aaif/goose-sdk @agentclientprotocol/sdk
+npm install @openduck/sdk @agentclientprotocol/sdk
 ```
 
-The native `goose` binaries are distributed as optional dependencies
-and will be automatically installed for your platform.
+The native `openduck` (legacy `goose`) binaries are distributed as optional
+dependencies and will be automatically installed for your platform.
 
 ## Development
 
@@ -53,12 +56,12 @@ npm run build
 npm link
 
 # In the consuming project
-npm link @aaif/goose-sdk
+npm link @openduck/sdk
 ```
 
 ### Schema Generation
 
-The TypeScript types are generated from Rust schemas defined in `crates/goose`.
+The TypeScript types are generated from Rust schemas defined in `crates/openduck`.
 The build process:
 
 1. Builds the `generate-acp-schema` Rust binary
@@ -85,7 +88,7 @@ Platform-specific npm packages for the `goose` binary are located in
 | `@aaif/goose-binary-linux-x64`    | Linux x64           |
 | `@aaif/goose-binary-win32-x64`    | Windows x64         |
 
-These are published separately from `@aaif/goose-sdk`.
+These are published separately from `@openduck/sdk`.
 
 ### Building Native Binaries
 
@@ -113,13 +116,13 @@ For manual publishing:
 
 This will:
 
-1. Build and publish `@aaif/goose-sdk`
+1. Build and publish `@openduck/sdk`
 2. Publish all native binary packages
 
 ## Usage
 
-Compose the ACP client with the standard ACP SDK, then use `GooseExtClient` for
-typed Goose extension methods:
+Compose the ACP client with the standard ACP SDK, then use `OpenDuckClient` for
+typed OpenDuck extension methods (`GooseClient` is a compatible alias):
 
 ```typescript
 import {
@@ -128,12 +131,12 @@ import {
   PROTOCOL_VERSION,
 } from "@agentclientprotocol/sdk";
 import { createWebSocketStream } from "@agentclientprotocol/sdk/experimental/ws-client";
-import { GooseExtClient } from "@aaif/goose-sdk";
+import { OpenDuckClient } from "@openduck/sdk";
 
 const app = createAcpClient({ name: "my-client" });
 const stream = createWebSocketStream("ws://localhost:3000/acp");
 const connection = app.connect(stream);
-const goose = new GooseExtClient(connection.agent);
+const goose = new OpenDuckClient(connection.agent);
 
 await connection.agent.request(methods.agent.initialize, {
   protocolVersion: PROTOCOL_VERSION,

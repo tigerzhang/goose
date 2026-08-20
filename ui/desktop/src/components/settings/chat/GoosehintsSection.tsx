@@ -7,12 +7,12 @@ import { defineMessages, useIntl } from '../../../i18n';
 const i18n = defineMessages({
   title: {
     id: 'goosehintsSection.title',
-    defaultMessage: 'Project Hints (.goosehints)',
+    defaultMessage: 'Project Hints (.openduckhints)',
   },
   description: {
     id: 'goosehintsSection.description',
     defaultMessage:
-      "Configure your project's .goosehints file to provide additional context to Goose",
+      "Configure your project's .openduckhints file to provide additional context to OpenDuck",
   },
   configure: {
     id: 'goosehintsSection.configure',

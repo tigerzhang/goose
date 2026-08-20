@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RecipeDto } from '@aaif/goose-sdk';
+import type { RecipeDto } from '@openduck/sdk';
 import { getAcpClient } from '../acpConnection';
 import { encodeRecipe, listRecipes, parseRecipe, saveRecipe } from '../recipe';
 

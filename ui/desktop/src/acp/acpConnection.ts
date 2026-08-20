@@ -1,4 +1,4 @@
-import { DEFAULT_GOOSE_MCP_HOST_CAPABILITIES } from '@aaif/goose-sdk';
+import { DEFAULT_GOOSE_MCP_HOST_CAPABILITIES } from '@openduck/sdk';
 import { methods, PROTOCOL_VERSION, type InitializeResponse } from '@agentclientprotocol/sdk';
 import { createWebSocketStream } from '@agentclientprotocol/sdk/experimental/ws-client';
 import packageJson from '../../package.json';
@@ -142,11 +142,17 @@ async function openConnection(generation: number): Promise<AcpConnection> {
       client.connection.agent.request(methods.agent.initialize, {
         protocolVersion: ACP_V1_PROTOCOL_VERSION,
         _meta: {
+          'openduck/useLoginShellPath': true,
           'goose/useLoginShellPath': true,
         },
         clientCapabilities: {
           elicitation: { form: {} },
           _meta: {
+            openduck: {
+              mcpHostCapabilities: DEFAULT_GOOSE_MCP_HOST_CAPABILITIES,
+              customNotifications: true,
+              recipeParameterRequests: true,
+            },
             goose: {
               mcpHostCapabilities: DEFAULT_GOOSE_MCP_HOST_CAPABILITIES,
               customNotifications: true,

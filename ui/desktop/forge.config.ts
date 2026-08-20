@@ -2,7 +2,9 @@ const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 const { resolve } = require('path');
 
-const isLinuxVulkanBuild = process.env.GOOSE_DESKTOP_LINUX_VARIANT === 'vulkan';
+const isLinuxVulkanBuild =
+  process.env.OPENDUCK_DESKTOP_LINUX_VARIANT === 'vulkan' ||
+  process.env.GOOSE_DESKTOP_LINUX_VARIANT === 'vulkan';
 
 let cfg = {
   asar: true,
@@ -16,11 +18,12 @@ let cfg = {
     rfc3161TimeStampServer: 'http://timestamp.digicert.com',
     signWithParams: '/fd sha256 /tr http://timestamp.digicert.com /td sha256',
   },
-  // Protocol registration
+  appBundleId: 'dev.openduck.desktop',
+  // Protocol registration: OpenDuck is primary; goose:// remains for existing deeplinks.
   protocols: [
     {
-      name: 'GooseProtocol',
-      schemes: ['goose'],
+      name: 'OpenDuckProtocol',
+      schemes: ['openduck', 'goose'],
     },
   ],
   // macOS Info.plist extensions for drag-and-drop support
@@ -36,9 +39,9 @@ let cfg = {
     ],
     // Usage descriptions for macOS TCC (Transparency, Consent, and Control)
     NSMicrophoneUsageDescription:
-      'Goose needs access to your microphone for voice dictation.',
+      'OpenDuck needs access to your microphone for voice dictation.',
     NSAppleEventsUsageDescription:
-      'Goose needs access to send Apple Events to control other apps on your behalf.',
+      'OpenDuck needs access to send Apple Events to control other apps on your behalf.',
   },
 };
 
@@ -87,8 +90,8 @@ module.exports = {
     {
       name: '@electron-forge/maker-deb',
       config: {
-        name: 'Goose',
-        bin: 'Goose',
+        name: 'OpenDuck',
+        bin: 'OpenDuck',
         maintainer: 'AAIF (Agentic AI Foundation)',
         homepage: 'https://goose-docs.ai/',
         categories: ['Development'],
@@ -103,8 +106,8 @@ module.exports = {
     {
       name: '@electron-forge/maker-rpm',
       config: {
-        name: 'Goose',
-        bin: 'Goose',
+        name: 'OpenDuck',
+        bin: 'OpenDuck',
         maintainer: 'AAIF (Agentic AI Foundation)',
         homepage: 'https://goose-docs.ai/',
         categories: ['Development'],
@@ -122,7 +125,7 @@ module.exports = {
         options: {
           id: 'io.github.block.Goose', // NOTE: kept for backwards compat with existing installs
           categories: ['Development'],
-          mimeType: ['x-scheme-handler/goose'],
+          mimeType: ['x-scheme-handler/openduck', 'x-scheme-handler/goose'],
           icon: {
             scalable: 'src/images/icon.svg',
             '512x512': 'src/images/icon-512.png',
@@ -130,7 +133,7 @@ module.exports = {
           homepage: 'https://goose-docs.ai/',
           runtimeVersion: '25.08',
           baseVersion: '25.08',
-          bin: 'Goose',
+          bin: 'OpenDuck',
           modules: [
             {
               name: 'libbz2-shim',

@@ -1,5 +1,5 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import type { ToolListItem } from '@aaif/goose-sdk';
+import type { ToolListItem } from '@openduck/sdk';
 import type { GooseApp } from '../types/apps';
 import { getAcpClient } from './acpConnection';
 import { normalizeAcpError } from './errors';

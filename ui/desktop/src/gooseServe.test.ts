@@ -4,7 +4,8 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildLocalServeUrls, findGooseBinaryPath, startGooseServe } from './gooseServe';
 
-const binaryName = process.platform === 'win32' ? 'goose.exe' : 'goose';
+const binaryName = process.platform === 'win32' ? 'openduck.exe' : 'openduck';
+const legacyBinaryName = process.platform === 'win32' ? 'goose.exe' : 'goose';
 const tempDirs: string[] = [];
 const originalCwd = process.cwd();
 type ReadinessFetchInit = Parameters<typeof globalThis.fetch>[1];
@@ -52,7 +53,7 @@ describe('findGooseBinaryPath', () => {
     }
   });
 
-  it('uses GOOSE_BINARY in development builds', () => {
+  it('uses OPENDUCK_BINARY or GOOSE_BINARY in development builds', () => {
     const tempDir = makeTempDir();
     const overridePath = makeFile(path.join(tempDir, 'override-goose'));
     vi.stubEnv('GOOSE_BINARY', overridePath);
@@ -60,7 +61,7 @@ describe('findGooseBinaryPath', () => {
     expect(findGooseBinaryPath({ isPackaged: false })).toBe(overridePath);
   });
 
-  it('rejects GOOSE_BINARY in packaged builds', () => {
+  it('rejects OPENDUCK_BINARY/GOOSE_BINARY in packaged builds', () => {
     const tempDir = makeTempDir();
     const resourcesPath = path.join(tempDir, 'resources');
     const overridePath = makeFile(path.join(tempDir, 'override-goose'));
@@ -68,7 +69,7 @@ describe('findGooseBinaryPath', () => {
     vi.stubEnv('GOOSE_BINARY', overridePath);
 
     expect(() => findGooseBinaryPath({ isPackaged: true, resourcesPath })).toThrow(
-      'GOOSE_BINARY is only supported in development builds'
+      'OPENDUCK_BINARY/GOOSE_BINARY is only supported in development builds'
     );
   });
 
@@ -86,12 +87,30 @@ describe('findGooseBinaryPath', () => {
     expect(fs.realpathSync(resolvedPath)).not.toBe(fs.realpathSync(debugPath));
   });
 
-  it('uses the bundled goose binary in packaged builds', () => {
+  it('uses the bundled openduck binary in packaged builds', () => {
     const tempDir = makeTempDir();
     const resourcesPath = path.join(tempDir, 'resources');
     const bundledPath = makeFile(path.join(resourcesPath, 'bin', binaryName));
 
     expect(findGooseBinaryPath({ isPackaged: true, resourcesPath })).toBe(bundledPath);
+  });
+
+  it('falls back to the legacy goose binary when openduck is absent', () => {
+    const tempDir = makeTempDir();
+    const resourcesPath = path.join(tempDir, 'resources');
+    const bundledPath = makeFile(path.join(resourcesPath, 'bin', legacyBinaryName));
+
+    expect(findGooseBinaryPath({ isPackaged: true, resourcesPath })).toBe(bundledPath);
+  });
+
+  it('prefers OPENDUCK_BINARY over GOOSE_BINARY', () => {
+    const tempDir = makeTempDir();
+    const preferred = makeFile(path.join(tempDir, 'override-openduck'));
+    const legacy = makeFile(path.join(tempDir, 'override-goose'));
+    vi.stubEnv('OPENDUCK_BINARY', preferred);
+    vi.stubEnv('GOOSE_BINARY', legacy);
+
+    expect(findGooseBinaryPath({ isPackaged: false })).toBe(preferred);
   });
 });
 

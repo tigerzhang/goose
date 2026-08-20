@@ -19,6 +19,7 @@ function getStdioConfig(
     'jbang',
     'npx',
     'uvx',
+    'openduck',
     'goose',
     'npx.cmd',
   ];
@@ -104,10 +105,10 @@ export async function addExtensionFromDeepLink(
 ) {
   const parsedUrl = new URL(url);
 
-  if (parsedUrl.protocol !== 'goose:') {
+  if (parsedUrl.protocol !== 'openduck:' && parsedUrl.protocol !== 'goose:') {
     toastService.handleError(
       'Invalid Protocol',
-      'Failed to install extension: Invalid protocol: URL must use the goose:// scheme',
+      'Failed to install extension: Invalid protocol: URL must use the openduck:// or goose:// scheme',
       { shouldThrow: true }
     );
   }

@@ -48,10 +48,10 @@ For manual publishing:
 ./ui/scripts/publish.sh --real
 ```
 
-This will publish all native packages along with `@aaif/goose-sdk`.
+This will publish all native packages along with `@openduck/sdk`.
 
 ## Usage
 
-These packages are installed as optional dependencies by `@aaif/goose-sdk`, which
+These packages are installed as optional dependencies by `@openduck/sdk`, which
 resolves the appropriate package for the user's platform automatically. See
 `ui/sdk/src/resolve-binary.ts` for how the binary path is resolved.

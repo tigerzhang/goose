@@ -2,7 +2,7 @@ import type {
   DictationDownloadProgress,
   DictationLocalModelStatus,
   DictationProviderStatusEntry,
-} from '@aaif/goose-sdk';
+} from '@openduck/sdk';
 import { getAcpClient } from './acpConnection';
 
 export type { DictationProviderStatusEntry };

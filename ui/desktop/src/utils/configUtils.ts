@@ -1,5 +1,16 @@
 export const configLabels: Record<string, string> = {
-  // goose settings
+  // OpenDuck settings (legacy GOOSE_* keys still apply)
+  OPENDUCK_PROVIDER: 'Provider',
+  OPENDUCK_MODEL: 'Model',
+  OPENDUCK_TEMPERATURE: 'Temperature',
+  OPENDUCK_MODE: 'Mode',
+  OPENDUCK_PLANNER_PROVIDER: 'Planner Provider',
+  OPENDUCK_PLANNER_MODEL: 'Planner Model',
+  OPENDUCK_TOOLSHIM: 'Tool Shim',
+  OPENDUCK_TOOLSHIM_OLLAMA_MODEL: 'Tool Shim Ollama Model',
+  OPENDUCK_CLI_MIN_PRIORITY: 'CLI Min Priority',
+  OPENDUCK_ALLOWLIST: 'Allow List',
+  OPENDUCK_RECIPE_GITHUB_REPO: 'Recipe GitHub Repo',
   GOOSE_PROVIDER: 'Provider',
   GOOSE_MODEL: 'Model',
   GOOSE_TEMPERATURE: 'Temperature',
