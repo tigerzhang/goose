@@ -2,8 +2,8 @@
 set -e
 
 if [ -z "$SKIP_BUILD" ]; then
-  echo "Building goose..."
-  cargo build --bin goose
+  echo "Building OpenDuck..."
+  cargo build --bin openduck --bin goose
   echo ""
 else
   echo "Skipping build (SKIP_BUILD is set)..."

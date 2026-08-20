@@ -132,37 +132,37 @@ goose recipe list
 goose recipe list --verbose
 
 # Output in JSON format for automation
-goose recipe list --format json
+openduck recipe list --format json
 ```
 
 **Recipe Discovery Process**
 
-goose searches for recipes in the following locations (in order):
+OpenDuck searches for recipes in the following locations (in order):
 
 1. **Current directory**: `.` (looks for `*.yaml` and `*.json` files)
-2. **Custom paths**: Directories specified in [`GOOSE_RECIPE_PATH`](/docs/guides/environment-variables#recipe-configuration) environment variable
-3. **Global recipe library**: `~/.config/goose/recipes/` (or equivalent on your OS)
-4. **Local project recipes**: `./.goose/recipes/`
-5. **GitHub repository**: If [`GOOSE_RECIPE_GITHUB_REPO`](/docs/guides/environment-variables#recipe-configuration) environment variable is configured
+2. **Custom paths**: Directories specified in [`OPENDUCK_RECIPE_PATH`](/docs/guides/environment-variables#recipe-configuration) (legacy `GOOSE_RECIPE_PATH`)
+3. **Global recipe library**: OpenDuck config `recipes/` (legacy Goose config `recipes/` is still searched)
+4. **Local project recipes**: `./.openduck/recipes/` (legacy `./.goose/recipes/`)
+5. **GitHub repository**: If [`OPENDUCK_RECIPE_GITHUB_REPO`](/docs/guides/environment-variables#recipe-configuration) (legacy `GOOSE_RECIPE_GITHUB_REPO`) is configured
 
 **Example Output**
 
 *Default text format:*
 ```bash
-$ goose recipe list
+$ openduck recipe list
 Available recipes:
-goose-self-test - A comprehensive meta-testing recipe - local: ./goose-self-test.yaml
+openduck-self-test - A comprehensive meta-testing recipe - local: ./openduck-self-test.yaml
 hello-world - A sample recipe demonstrating basic usage - local: ~/.config/goose/recipes/hello-world.yaml
 job-finder - Find software engineering positions - local: ~/.config/goose/recipes/job-finder.yaml
 ```
 
 *Verbose mode:*
 ```bash
-$ goose recipe list --verbose
+$ openduck recipe list --verbose
 Available recipes:
-  goose-self-test - A comprehensive meta-testing recipe - local: ./goose-self-test.yaml
-    Title: goose Self-Testing Integration Suite
-    Path: ./goose-self-test.yaml
+  openduck-self-test - A comprehensive meta-testing recipe - local: ./openduck-self-test.yaml
+    Title: OpenDuck Self-Testing Integration Suite
+    Path: ./openduck-self-test.yaml
   hello-world - A sample recipe demonstrating basic usage - local: ~/.config/goose/recipes/hello-world.yaml
     Title: Hello World Recipe
     Path: /Users/username/.config/goose/recipes/hello-world.yaml
@@ -172,10 +172,10 @@ Available recipes:
 ```json
 [
   {
-    "name": "goose-self-test",
+    "name": "openduck-self-test",
     "source": "Local",
-    "path": "./goose-self-test.yaml",
-    "title": "goose Self-Testing Integration Suite",
+    "path": "./openduck-self-test.yaml",
+    "title": "OpenDuck Self-Testing Integration Suite",
     "description": "A comprehensive meta-testing recipe"
   },
   {
@@ -192,13 +192,13 @@ Available recipes:
 
 Add custom recipe directories:
 ```bash
-export GOOSE_RECIPE_PATH="/path/to/my/recipes:/path/to/team/recipes"
+export OPENDUCK_RECIPE_PATH="/path/to/my/recipes:/path/to/team/recipes"
 goose recipe list
 ```
 
 Configure GitHub recipe repository:
 ```bash
-export GOOSE_RECIPE_GITHUB_REPO="myorg/goose-recipes"
+export OPENDUCK_RECIPE_GITHUB_REPO="myorg/openduck-recipes"
 goose recipe list
 ```
 

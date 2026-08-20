@@ -75,7 +75,7 @@ jobs:
           RUST_MIN_STACK: 8388608
 
   goose-sdk-uniffi:
-    name: Check goose-sdk UniFFI
+    name: Check openduck-sdk UniFFI
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.code == 'true' || github.event_name != 'pull_request'

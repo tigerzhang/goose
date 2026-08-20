@@ -6,24 +6,27 @@ sidebar_label: Configuration Files
 
 # Configuration Overview
 
-goose uses YAML [configuration files](#configuration-files) to manage settings and extensions. The primary config file is located at:
+OpenDuck uses YAML [configuration files](#configuration-files) to manage settings and extensions. The primary config file is located at:
 
-* macOS/Linux: `~/.config/goose/config.yaml`
-* Windows: `%APPDATA%\Block\goose\config\config.yaml`
+* macOS: `~/Library/Application Support/OpenDuck/config.yaml`
+* Linux: `~/.config/OpenDuck/config.yaml`
+* Windows: `%APPDATA%\OpenDuck\config\config.yaml`
+
+Existing Goose config directories (`~/.config/goose/`, `%APPDATA%\Block\goose\`) are migrated automatically. Environment variables prefer `OPENDUCK_*` and still accept matching `GOOSE_*` names as legacy aliases.
 
 The configuration files allow you to set default behaviors, configure language models, set tool permissions, and manage extensions. While many settings can also be set using [environment variables](/docs/guides/environment-variables), the config files provide a persistent way to maintain your preferences.
 
 ## Configuration Files
 
 - **config.yaml** - Provider, model, extensions, and general settings
-- **permission.yaml** - Tool permission levels configured via `goose configure`
-- **secrets.yaml** - API keys and secrets (when goose is using [file-based secret storage](#security-considerations))
+- **permission.yaml** - Tool permission levels configured via `openduck configure`
+- **secrets.yaml** - API keys and secrets (when OpenDuck is using [file-based secret storage](#security-considerations))
 - **permissions/tool_permissions.json** - Runtime permission decisions (auto-managed)
 - **prompts/** - Customized [prompt templates](/docs/guides/context-engineering/prompt-templates)
 
-In addition to editing configuration files directly, many settings can be managed from goose Desktop and goose CLI:
-- **goose Desktop**: From the `Settings` page and the bottom toolbar
-- **goose CLI**: Run the `goose configure` command
+In addition to editing configuration files directly, many settings can be managed from OpenDuck Desktop and OpenDuck CLI:
+- **OpenDuck Desktop**: From the `Settings` page and the bottom toolbar
+- **OpenDuck CLI**: Run the `openduck configure` command (legacy `goose configure` still works)
 
 ## Provider Configuration
 
@@ -38,11 +41,11 @@ providers:
     configured: true
 ```
 
-`GOOSE_PROVIDER` and `GOOSE_MODEL` are still supported as environment variables and override the config file for that process. Older config files that use flat `GOOSE_PROVIDER` and `GOOSE_MODEL` keys are read for compatibility and migrated when goose updates the provider settings.
+`OPENDUCK_PROVIDER` and `OPENDUCK_MODEL` (legacy `GOOSE_PROVIDER` / `GOOSE_MODEL`) are supported as environment variables and override the config file for that process. Older config files that use flat `GOOSE_PROVIDER` and `GOOSE_MODEL` keys are read for compatibility and migrated when OpenDuck updates the provider settings.
 
 ## Global Settings
 
-The following settings can be configured at the root level of your config.yaml file:
+The following settings can be configured at the root level of your config.yaml file. Matching `OPENDUCK_*` environment variables (with legacy `GOOSE_*` aliases) override these file values.
 
 | Setting | Purpose | Values | Default | Required |
 |---------|---------|---------|---------|-----------|
@@ -63,7 +66,7 @@ The following settings can be configured at the root level of your config.yaml f
 | `GOOSE_ALLOWLIST` | URL for allowed extensions | Valid URL | None | No |
 | `GOOSE_DOCS_ROOT` | Documentation root used by `goose-doc-guide` (e.g. for offline/air-gapped docs) | Local path or HTTP(S) URL containing `goose-docs-map.md` and `docs/` | `https://goose-docs.ai` | No |
 | `GOOSE_RECIPE_GITHUB_REPO` | GitHub repository for recipes | Format: "org/repo" | None | No |
-| `GOOSE_AUTO_COMPACT_THRESHOLD` | Set the percentage threshold at which goose [automatically compacts your session](/docs/guides/sessions/smart-context-management#automatic-compaction). | Float between 0.0 and 1.0 (disabled at 0.0)| 0.8 | No |
+| `GOOSE_AUTO_COMPACT_THRESHOLD` | Set the percentage threshold at which OpenDuck [automatically compacts your session](/docs/guides/sessions/smart-context-management#automatic-compaction). | Float between 0.0 and 1.0 (disabled at 0.0)| 0.8 | No |
 | `SECURITY_PROMPT_ENABLED` | Enable [prompt injection detection](/docs/guides/security/prompt-injection-detection) to identify potentially harmful commands | true/false | false | No |
 | `SECURITY_PROMPT_THRESHOLD` | Sensitivity threshold for prompt injection detection (higher = stricter) | Float between 0.01 and 1.0 | 0.8 | No |
 | `SECURITY_PROMPT_CLASSIFIER_ENABLED` | Enable ML-based prompt injection detection for advanced threat identification | true/false | false | No |
@@ -191,7 +194,7 @@ Use the `available_tools` field to limit which tools are loaded from an extensio
 
 ## Search Path Configuration
 
-Extensions may need to execute external commands or tools. Goose builds the command search path from any `GOOSE_SEARCH_PATHS` entries, built-in fallback paths, and then your system PATH. You can add additional search directories in your config file:
+Extensions may need to execute external commands or tools. Goose builds the command search path from any `OPENDUCK_SEARCH_PATHS` entries, built-in fallback paths, and then your system PATH. You can add additional search directories in your config file:
 
 ```yaml
 GOOSE_SEARCH_PATHS:

@@ -130,11 +130,11 @@ jobs:
           fi
 
           if [ "${{ matrix.variant }}" = "musl" ]; then
-            cargo build --release --target ${TARGET} -p openduck-cli --bin goose \
+            cargo build --release --target ${TARGET} -p openduck-cli --bin openduck --bin goose \
               --no-default-features \
               --features portable-default
           else
-            cargo build --release --target ${TARGET} -p openduck-cli --bin goose "${FEATURE_ARGS[@]}"
+            cargo build --release --target ${TARGET} -p openduck-cli --bin openduck --bin goose "${FEATURE_ARGS[@]}"
           fi
 
       - name: Build CLI (manylinux container)
@@ -156,7 +156,7 @@ jobs:
           rustup toolchain install "$RUST_CHANNEL" --profile minimal \
             --component rustc,cargo --target "$TARGET"
           rustup show
-          cargo build --release --target "$TARGET" -p openduck-cli --bin goose
+          cargo build --release --target "$TARGET" -p openduck-cli --bin openduck --bin goose
 
       - name: Package CLI
         run: |
@@ -170,22 +170,28 @@ jobs:
             VARIANT_SUFFIX="-vulkan"
           fi
 
-          # Create a directory for the package contents
-          mkdir -p "target/${TARGET}/release/goose-package"
-
-          # Copy the goose binary
-          cp "target/${TARGET}/release/goose" "target/${TARGET}/release/goose-package/"
+          # Create a directory for the package contents (openduck primary + goose alias)
+          mkdir -p "target/${TARGET}/release/openduck-package"
+          cp "target/${TARGET}/release/openduck" "target/${TARGET}/release/openduck-package/"
+          cp "target/${TARGET}/release/goose" "target/${TARGET}/release/openduck-package/"
 
           cd "target/${TARGET}/release"
-          tar -cjf "goose-${TARGET}${VARIANT_SUFFIX}.tar.bz2" -C goose-package .
-          tar -czf "goose-${TARGET}${VARIANT_SUFFIX}.tar.gz" -C goose-package .
-          echo "ARTIFACT_BZ2=target/${TARGET}/release/goose-${TARGET}${VARIANT_SUFFIX}.tar.bz2" >> $GITHUB_ENV
-          echo "ARTIFACT_GZ=target/${TARGET}/release/goose-${TARGET}${VARIANT_SUFFIX}.tar.gz" >> $GITHUB_ENV
+          tar -cjf "openduck-${TARGET}${VARIANT_SUFFIX}.tar.bz2" -C openduck-package .
+          tar -czf "openduck-${TARGET}${VARIANT_SUFFIX}.tar.gz" -C openduck-package .
+          # Legacy goose-* names remain as aliases for existing download scripts.
+          cp "openduck-${TARGET}${VARIANT_SUFFIX}.tar.bz2" "goose-${TARGET}${VARIANT_SUFFIX}.tar.bz2"
+          cp "openduck-${TARGET}${VARIANT_SUFFIX}.tar.gz" "goose-${TARGET}${VARIANT_SUFFIX}.tar.gz"
+          echo "ARTIFACT_BZ2=target/${TARGET}/release/openduck-${TARGET}${VARIANT_SUFFIX}.tar.bz2" >> $GITHUB_ENV
+          echo "ARTIFACT_GZ=target/${TARGET}/release/openduck-${TARGET}${VARIANT_SUFFIX}.tar.gz" >> $GITHUB_ENV
+          echo "LEGACY_ARTIFACT_BZ2=target/${TARGET}/release/goose-${TARGET}${VARIANT_SUFFIX}.tar.bz2" >> $GITHUB_ENV
+          echo "LEGACY_ARTIFACT_GZ=target/${TARGET}/release/goose-${TARGET}${VARIANT_SUFFIX}.tar.gz" >> $GITHUB_ENV
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
-          name: goose-${{ matrix.architecture }}-${{ matrix.target-suffix }}${{ matrix.variant != 'standard' && matrix.variant != 'musl' && format('-{0}', matrix.variant) || '' }}
+          name: openduck-${{ matrix.architecture }}-${{ matrix.target-suffix }}${{ matrix.variant != 'standard' && matrix.variant != 'musl' && format('-{0}', matrix.variant) || '' }}
           path: |
             ${{ env.ARTIFACT_BZ2 }}
             ${{ env.ARTIFACT_GZ }}
+            ${{ env.LEGACY_ARTIFACT_BZ2 }}
+            ${{ env.LEGACY_ARTIFACT_GZ }}

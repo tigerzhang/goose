@@ -1,6 +1,6 @@
 # Contribution Guide
 
-goose is open source, and code is only one way to contribute. Reporting a problem, reproducing it, sharing domain knowledge, shaping the design, implementing the solution, and verifying the result are all valuable work.
+OpenDuck is open source, and code is only one way to contribute. Reporting a problem, reproducing it, sharing domain knowledge, shaping the design, implementing the solution, and verifying the result are all valuable work.
 
 We organize this work on the public [Goose Issues board](https://github.com/orgs/aaif-goose/projects/1). The issue is the main record of a contribution, from the first report through design, implementation, and verification.
 
@@ -54,7 +54,7 @@ Don't open many pull requests in quick succession. Submit them in order of prefe
 
 ## Agent Loop Migration
 
-We are replacing the legacy agent loop in `crates/goose/src/agents/agent.rs` with the state machine in `crates/goose/src/agents/state_machine/`. The state-machine path is enabled with `GOOSE_STATE_MACHINE=1`.
+We are replacing the legacy agent loop in `crates/openduck/src/agents/agent.rs` with the state machine in `crates/openduck/src/agents/state_machine/`. The state-machine path is enabled with `OPENDUCK_STATE_MACHINE=1` (legacy `GOOSE_STATE_MACHINE=1` still works).
 
 Until the migration is complete, changes to agent-loop behavior must be implemented and tested in both paths. Pull requests should explain how parity between the two paths was verified.
 
@@ -75,7 +75,7 @@ are responsible for the final code. Before submitting a PR for review, make sure
 We'll close any vibe coded submissions that obviously skip this step.
 
 You can use whatever agent and whatever methodology you like as long as you stick to that principle. We hope
-you like goose of course and use that. One thing to watch out for is LLM eagerness. They like to please and
+you like OpenDuck of course and use that. One thing to watch out for is LLM eagerness. They like to please and
 are in a hurry. 
 
    * **Think first**. Agents tend to jump straight to code writing. Explain the architecture you want first to 
@@ -94,7 +94,7 @@ are in a hurry.
    
 ## Prerequisites
 
-goose includes Rust binaries alongside an electron app for the GUI.
+OpenDuck includes Rust binaries alongside an electron app for the GUI.
 
 We use [Hermit][hermit] to manage development dependencies (Rust, Node, pnpm, just, etc.).
 Activate Hermit when entering the project:
@@ -122,34 +122,34 @@ sudo apt install libxcb1-dev      # libxcb1-dev is the development package for t
 
 ### Rust
 
-First let's compile goose and try it out
-Since goose requires Hermit for managing dependencies, let's activate hermit.
+First let's compile OpenDuck and try it out.
+Since OpenDuck requires Hermit for managing dependencies, let's activate hermit.
 
 ```
-cd goose
+cd goose  # or your OpenDuck checkout
 source ./bin/activate-hermit
 cargo build
 ```
 
-When that completes, debug builds of the binaries are available, including the goose CLI:
+When that completes, debug builds of the binaries are available, including the OpenDuck CLI (`openduck`; legacy `goose` still works):
 
 ```
-./target/debug/goose --help
+./target/debug/openduck --help
 ```
 
 For first-time setup, run the configure command:
 
 ```
-./target/debug/goose configure
+./target/debug/openduck configure
 ```
 
 Once a connection to an LLM provider is working, start a session:
 
 ```
-./target/debug/goose session
+./target/debug/openduck session
 ```
 
-These same commands can be recompiled and immediately run using `cargo run -p goose-cli` for iteration.
+These same commands can be recompiled and immediately run using `cargo run -p openduck-cli` for iteration.
 When making changes to the Rust code, test them on the CLI or run checks, tests, and the linter:
 
 ```
@@ -168,7 +168,7 @@ just run-ui
 ```
 
 This command builds a release build of Rust (equivalent to `cargo build -r`) and starts the Electron process.
-The app opens a window and displays first-time setup. After completing setup, goose is ready for use.
+The app opens a window and displays first-time setup. After completing setup, OpenDuck is ready for use.
 
 Make GUI changes in `ui/desktop`.
 
@@ -188,13 +188,13 @@ See #8757.
 To debug the external ACP backend, run it from an IDE. The configuration will depend on the IDE. The command to run is:
 
 ```
-export GOOSE_SERVER__SECRET_KEY=test
-cargo run --package goose-cli --bin goose -- serve --platform desktop --enable-scheduler --host 127.0.0.1 --port 3000
+export OPENDUCK_SERVER__SECRET_KEY=test
+cargo run --package openduck-cli --bin openduck -- serve --platform desktop --enable-scheduler --host 127.0.0.1 --port 3000
 ```
 
 The `debug-ui` recipe connects to `http://127.0.0.1:3000` by default. If the
-backend uses another port, set `GOOSE_PORT` when starting the UI, or set
-`GOOSE_EXTERNAL_BACKEND_URL` to the backend's HTTP base URL.
+backend uses another port, set `OPENDUCK_PORT` (legacy `GOOSE_PORT`) when starting the UI, or set
+`OPENDUCK_EXTERNAL_BACKEND_URL` (legacy `GOOSE_EXTERNAL_BACKEND_URL`) to the backend's HTTP base URL.
 
 Once the backend is running, start a UI and connect it to the backend by running:
 
@@ -305,7 +305,7 @@ your configuration.
 > At the moment, we are still updating some of the CLI configuration to make sure this is
 > respected.
 
-You can change the provider goose points to via the `GOOSE_PROVIDER` env var. If you already
+You can change the provider OpenDuck points to via the `OPENDUCK_PROVIDER` env var (legacy `GOOSE_PROVIDER` still works). If you already
 have a credential for that provider in your keychain from previously setting up, it should
 reuse it. For things like automations or to test without doing official setup, you can also
 set the relevant env vars for that provider. For example `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
@@ -313,23 +313,23 @@ or `DATABRICKS_HOST`. Refer to the provider details for more info on required ke
 
 ### Isolating Test Environments
 
-When testing changes or running multiple goose configurations, use `GOOSE_PATH_ROOT` to isolate your data:
+When testing changes or running multiple OpenDuck configurations, use `OPENDUCK_PATH_ROOT` (legacy `GOOSE_PATH_ROOT`) to isolate your data:
 
 ```bash
 # Test with a clean environment
-export GOOSE_PATH_ROOT="/tmp/goose-test"
-./target/debug/goose session
+export OPENDUCK_PATH_ROOT="/tmp/openduck-test"
+./target/debug/openduck session
 
 # Or for a single command
-GOOSE_PATH_ROOT="/tmp/goose-dev" cargo run -p goose-cli -- session
+OPENDUCK_PATH_ROOT="/tmp/openduck-dev" cargo run -p openduck-cli -- session
 ```
 
-This creates isolated `config/`, `data/`, and `state/` directories under the specified path, preventing your test sessions from affecting your main goose installation. See the [environment variables guide](./documentation/docs/guides/environment-variables.md#development--testing) for more details.
+This creates isolated `config/`, `data/`, and `state/` directories under the specified path, preventing your test sessions from affecting your main OpenDuck installation. See the [environment variables guide](./documentation/docs/guides/environment-variables.md#development--testing) for more details.
 
-## Enable traces in goose with [locally hosted Langfuse](https://langfuse.com/docs/deployment/self-host)
+## Enable traces in OpenDuck with [locally hosted Langfuse](https://langfuse.com/docs/deployment/self-host)
 
 - [Start a local Langfuse using the docs](https://langfuse.com/self-hosting/docker-compose). Create an organization and project and create API credentials.
-- Set the environment variables so that goose can connect to the langfuse server:
+- Set the environment variables so that OpenDuck can connect to the langfuse server:
 
 ```
 export LANGFUSE_INIT_PROJECT_PUBLIC_KEY=publickey-local

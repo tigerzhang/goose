@@ -8,11 +8,13 @@ toc_max_heading_level: 4
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-goose provides a command-line interface (CLI) with commands for managing sessions, configurations and extensions. This guide covers the main CLI commands and interactive session features.
+OpenDuck provides a command-line interface (CLI) with commands for managing sessions, configurations and extensions. This guide covers the main CLI commands and interactive session features.
+
+The CLI binary is `openduck`. The legacy `goose` binary is still installed as an alias, so existing scripts keep working.
 
 ## Flag Naming Conventions
 
-goose CLI follows consistent patterns for flag naming to make commands intuitive and predictable:
+The OpenDuck CLI follows consistent patterns for flag naming to make commands intuitive and predictable:
 
 - **`--session-id`**: Used for session identifiers (e.g., `20251108_1`)
 - **`--schedule-id`**: Used for schedule job identifiers (e.g., `daily-report`)
@@ -32,65 +34,65 @@ Display the help menu.
 
 **Usage:**
 ```bash
-goose --help
+openduck --help
 ```
 
 ---
 
 #### configure
-Configure goose settings - providers, extensions, etc.
+Configure OpenDuck settings - providers, extensions, etc.
 
 **Usage:**
 ```bash
-goose configure
+openduck configure
 ```
 
 :::tip Type to Filter
-When selecting from menus in `goose configure`, start typing to filter options in real-time. This works for lists of providers, extensions, and tools.
+When selecting from menus in `openduck configure`, start typing to filter options in real-time. This works for lists of providers, extensions, and tools.
 :::
 
 ---
 
 #### info [options]
-Shows goose information, including the version, configuration file location, session storage, and logs.
+Shows openduck information, including the version, configuration file location, session storage, and logs.
 
 **Options:**
 - **`-v, --verbose`**: Show detailed configuration settings, including environment variables and enabled extensions
 
 **Usage:**
 ```bash
-goose info
+openduck info
 ```
 
 ---
 
 #### version
-Check the current goose version you have installed.
+Check the current OpenDuck version you have installed.
 
 **Usage:**
 ```bash
-goose --version
+openduck --version
 ```
 
 ---
 
 #### update [options]
-Update the goose CLI to a newer version.
+Update the OpenDuck CLI to a newer version.
 
 **Options:**
 - **`--canary, -c`**: Update to the canary (development) version instead of the stable version
-- **`--reconfigure, -r`**: Forces goose to reset configuration settings during the update process
+- **`--reconfigure, -r`**: Forces OpenDuck to reset configuration settings during the update process
 
 **Usage:**
 ```bash
 # Update to latest stable version
-goose update
+openduck update
 
 # Update to latest canary version
-goose update --canary
+openduck update --canary
 
 # Update and reconfigure settings
-goose update --reconfigure
+openduck update --reconfigure
 ```
 
 ---
@@ -109,10 +111,10 @@ Once installed, you can:
 **Usage:**
 ```bash
 # Generate completion script for your shell (outputs to stdout)
-goose completion bash
-goose completion zsh
-goose completion fish
-goose completion nu
+openduck completion bash
+openduck completion zsh
+openduck completion fish
+openduck completion nu
 ```
 
 **Installation by Shell:**
@@ -123,7 +125,7 @@ goose completion nu
 Add this line to your `~/.zshrc`:
 
 ```bash
-eval "$(goose completion zsh)"
+eval "$(openduck completion zsh)"
 ```
 
 Then reload your shell:
@@ -137,7 +139,7 @@ source ~/.zshrc
 Add this line to your `~/.bashrc` or `~/.bash_profile`:
 
 ```bash
-eval "$(goose completion bash)"
+eval "$(openduck completion bash)"
 ```
 
 Then reload your shell:
@@ -149,7 +151,7 @@ source ~/.bashrc
 <TabItem value="fish" label="Fish">
 
 ```bash
-goose completion fish > ~/.config/fish/completions/goose.fish
+openduck completion fish > ~/.config/fish/completions/goose.fish
 ```
 
 Then restart your terminal or run `exec fish`.
@@ -160,7 +162,7 @@ Then restart your terminal or run `exec fish`.
 ```nu
 let autoload_dir = ($nu.user-autoload-dirs | first)
 mkdir $autoload_dir
-goose completion nu | save --force ($autoload_dir | path join "goose.nu")
+openduck completion nu | save --force ($autoload_dir | path join "goose.nu")
 ```
 
 Then restart Nushell or run:
@@ -174,7 +176,7 @@ source (($nu.user-autoload-dirs | first) | path join "goose.nu")
 Add this line to your PowerShell profile:
 
 ```powershell
-goose completion powershell | Out-String | Invoke-Expression
+openduck completion powershell | Out-String | Invoke-Expression
 ```
 
 Then reload your profile:
@@ -186,7 +188,7 @@ Then reload your profile:
 </Tabs>
 
 :::tip Testing
-After installing and reloading your shell, test completion by typing `goose ` and pressing Tab to see available commands, or `goose session --` and Tab to see available options.
+After installing and reloading your shell, test completion by typing `openduck ` and pressing Tab to see available commands, or `openduck session --` and Tab to see available options.
 :::
 
 ---
@@ -195,7 +197,7 @@ After installing and reloading your shell, test completion by typing `goose ` an
 
 :::info Session Storage Migration
 Starting with version 1.10.0, goose uses a SQLite database (`sessions.db`) instead of individual `.jsonl` files.
-Your existing sessions are automatically imported to the database. Legacy `.jsonl` files remain on disk but are no longer managed by goose.
+Your existing sessions are automatically imported to the database. Legacy `.jsonl` files remain on disk but are no longer managed by OpenDuck.
 :::
 
 #### session [options]
@@ -222,42 +224,42 @@ Start or resume interactive chat sessions.
 **Usage:**
 ```bash
 # Start a basic session
-goose session -n my-project
+openduck session -n my-project
 
 # Resume a previous session
-goose session --resume -n my-project
-goose session --resume --session-id 20251108_2
-goose session --resume --path ./session.json    # exported session
-goose session --resume --path ./session.jsonl   # legacy session storage
+openduck session --resume -n my-project
+openduck session --resume --session-id 20251108_2
+openduck session --resume --path ./session.json    # exported session
+openduck session --resume --path ./session.jsonl   # legacy session storage
 
 # Fork a specific session by name
-goose session --resume --fork --name my-project
+openduck session --resume --fork --name my-project
 
 # Fork the most recent session and show message history
-goose session --resume --fork --history
+openduck session --resume --fork --history
 
 # Edit a session's conversation in your editor
-goose session --resume --session-id 20251108_2 --edit
+openduck session --resume --session-id 20251108_2 --edit
 
 # Edit and fork — create a new session from the edited conversation
-goose session --resume --session-id 20251108_2 --fork --edit --history
+openduck session --resume --session-id 20251108_2 --fork --edit --history
 
 # Start with extensions
-goose session --with-extension "npx -y @modelcontextprotocol/server-memory"
+openduck session --with-extension "npx -y @modelcontextprotocol/server-memory"
 
 # Name an extension explicitly (tools become memory__*, not npx__*)
-goose session --with-extension "memory:npx -y @modelcontextprotocol/server-memory"
-goose session --with-builtin developer
-goose session --with-streamable-http-extension "http://localhost:8080/mcp"
+openduck session --with-extension "memory:npx -y @modelcontextprotocol/server-memory"
+openduck session --with-builtin developer
+openduck session --with-streamable-http-extension "http://localhost:8080/mcp"
 
 # Advanced: Mix multiple extension types
-goose session \
+openduck session \
   --with-extension "echo hello" \
   --with-streamable-http-extension "http://localhost:8080/mcp" \
   --with-builtin "developer"
 
 # Control session behavior
-goose session -n my-session --debug --max-turns 25
+openduck session -n my-session --debug --max-turns 25
 ```
 
 ---
@@ -274,19 +276,19 @@ List all saved sessions.
 **Usage:**
 ```bash
 # List all sessions in text format (default)
-goose session list
+openduck session list
 
 # List sessions in JSON format
-goose session list --format json
+openduck session list --format json
 
 # Sort sessions by date in ascending order
-goose session list --ascending
+openduck session list --ascending
 
 # Filter sessions by working directory
-goose session list -w ~/projects/myapp
+openduck session list -w ~/projects/myapp
 
 # List only the 10 most recent sessions
-goose session list --limit 10
+openduck session list --limit 10
 ```
 
 ---
@@ -303,19 +305,19 @@ Remove one or more saved sessions.
 **Usage:**
 ```bash
 # Interactive removal (prompts you to choose sessions)
-goose session remove
+openduck session remove
 
 # Remove a specific session by ID
-goose session remove --session-id 20251108_3
+openduck session remove --session-id 20251108_3
 
 # Remove a specific session by name
-goose session remove -n my-project
+openduck session remove -n my-project
 
 # Remove all sessions starting with "project-"
-goose session remove -r "project-.*"
+openduck session remove -r "project-.*"
 
 # Remove all sessions containing "migration"
-goose session remove -r ".*migration.*"
+openduck session remove -r ".*migration.*"
 ```
 
 :::caution
@@ -342,20 +344,20 @@ Export sessions in different formats for backup, sharing, migration, or document
 **Usage:**
 ```bash
 # Interactive export
-goose session export
+openduck session export
 
 # Export specific session as JSON for backup
-goose session export -n my-session --format json -o session-backup.json
+openduck session export -n my-session --format json -o session-backup.json
 
 # Export specific session as readable markdown
-goose session export -n my-session -o session.md
+openduck session export -n my-session -o session.md
 
 # Export to stdout in different formats
-goose session export --session-id 20251108_4 --format json
-goose session export -n my-session --format yaml
+openduck session export --session-id 20251108_4 --format json
+openduck session export -n my-session --format yaml
 
 # Export session by path (legacy)
-goose session export --path ./my-session.jsonl -o exported.md
+openduck session export --path ./my-session.jsonl -o exported.md
 ```
 
 ---
@@ -378,16 +380,16 @@ Generate a comprehensive diagnostics JSON report for troubleshooting issues with
 **Usage:**
 ```bash
 # Generate diagnostics for a specific session by ID
-goose session diagnostics --session-id 20251108_5
+openduck session diagnostics --session-id 20251108_5
 
 # Generate diagnostics for a session by name
-goose session diagnostics -n my-project-session
+openduck session diagnostics -n my-project-session
 
 # Save diagnostics to a custom location
-goose session diagnostics --session-id 20251108_5 -o /path/to/my-diagnostics.json
+openduck session diagnostics --session-id 20251108_5 -o /path/to/my-diagnostics.json
 
 # Interactive selection (prompts you to choose a session)
-goose session diagnostics
+openduck session diagnostics
 ```
 
 :::warning Privacy Notice
@@ -440,39 +442,39 @@ Execute commands from an instruction file or stdin. Check out the [full guide](/
 **Usage:**
 ```bash
 # Run from instruction file
-goose run --instructions plan.md
+openduck run --instructions plan.md
 
-# Load a recipe with a prompt that goose executes and then exits  
-goose run --recipe recipe.yaml
+# Load a recipe with a prompt that goose executes and then exits
+openduck run --recipe recipe.yaml
 
 # Load a recipe and stay in an interactive session
-goose run --recipe recipe.yaml --interactive
+openduck run --recipe recipe.yaml --interactive
 
 # Load a recipe in debug mode
-goose run --recipe recipe.yaml --debug
+openduck run --recipe recipe.yaml --debug
 
 # Show recipe details
-goose run --recipe recipe.yaml --explain
+openduck run --recipe recipe.yaml --explain
 
 # Run a recipe with parameters
-goose run --recipe recipe.yaml --params environment=production --params region=us-west-2
+openduck run --recipe recipe.yaml --params environment=production --params region=us-west-2
 
 # Run instructions from a file without session storage
-goose run --no-session -i instructions.txt
+openduck run --no-session -i instructions.txt
 
 # Run with a specified provider and model
-goose run --provider anthropic --model claude-4-sonnet -t "initial prompt"
+openduck run --provider anthropic --model claude-4-sonnet -t "initial prompt"
 
 # Run with limited turns before prompting user
-goose run --recipe recipe.yaml --max-turns 10
+openduck run --recipe recipe.yaml --max-turns 10
 ```
 
 ---
 
 #### review [options] [range]
-Review the current git diff using goose. By default, `goose review` reviews the working tree against `HEAD`; pass a range such as `main...HEAD` to review a specific diff.
+Review the current git diff using OpenDuck. By default, `openduck review` reviews the working tree against `HEAD`; pass a range such as `main...HEAD` to review a specific diff.
 
-`goose review` can discover review checks from `.agents/checks/*.md` and scoped review instructions from `.agents/REVIEW.md`.
+`openduck review` can discover review checks from `.agents/checks/*.md` and scoped review instructions from `.agents/REVIEW.md`.
 
 **Options:**
 - **`--prompt <FILE>`**: Use a custom base review prompt
@@ -494,22 +496,22 @@ Review the current git diff using goose. By default, `goose review` reviews the 
 **Usage:**
 ```bash
 # Review the working tree against HEAD
-goose review
+openduck review
 
 # Review a branch range
-goose review main...HEAD
+openduck review main...HEAD
 
 # Add review intent
-goose review --instructions "This is a refactor; flag behavior changes"
+openduck review --instructions "This is a refactor; flag behavior changes"
 
 # Review only selected files
-goose review --files crates/goose/src/agents/agent.rs documentation/docs/guides/goose-cli-commands.md
+openduck review --files crates/openduck/src/agents/agent.rs documentation/docs/guides/goose-cli-commands.md
 
 # Preview the assembled prompt and discovered checks
-goose review --dry-run
+openduck review --dry-run
 
 # Run only named checks
-goose review --check-filter security performance --checks-only
+openduck review --check-filter security performance --checks-only
 ```
 
 ---
@@ -530,34 +532,34 @@ Used to validate recipe files, manage recipe sharing, list available recipes, an
 **Usage:**
 ```bash
 # Generate a shareable link
-goose recipe deeplink my-recipe.yaml
+openduck recipe deeplink my-recipe.yaml
 
 # Generate a deeplink and provide parameter values
-goose recipe deeplink my-recipe.yaml -p environment=production -p region=us-west-2
+openduck recipe deeplink my-recipe.yaml -p environment=production -p region=us-west-2
 
 # List all available recipes
-goose recipe list
+openduck recipe list
 
 # List recipes with detailed information
-goose recipe list --verbose
+openduck recipe list --verbose
 
 # List recipes in JSON format for automation
-goose recipe list --format json
+openduck recipe list --format json
 
 # Open a recipe in goose desktop
-goose recipe open my-recipe.yaml
+openduck recipe open my-recipe.yaml
 
 # Open a recipe by name
-goose recipe open my-recipe
+openduck recipe open my-recipe
 
 # Open a recipe and provide parameter value
-goose recipe open my-recipe --param name=myproject
+openduck recipe open my-recipe --param name=myproject
 
 # Validate a recipe file
-goose recipe validate my-recipe.yaml
+openduck recipe validate my-recipe.yaml
 
 # Get help about recipe commands
-goose recipe help
+openduck recipe help
 ```
 
 ---
@@ -573,13 +575,13 @@ Install and update git-backed plugins that provide skills or other Open Plugins 
 **Usage:**
 ```bash
 # Install a plugin from a git repository
-goose plugin install https://github.com/example/my-goose-plugin.git
+openduck plugin install https://github.com/example/my-goose-plugin.git
 
 # Install a plugin and enable automatic update checks
-goose plugin install --auto-update https://github.com/example/my-goose-plugin.git
+openduck plugin install --auto-update https://github.com/example/my-goose-plugin.git
 
 # Update an installed plugin manually
-goose plugin update my-plugin
+openduck plugin update my-plugin
 ```
 
 Installed plugins are stored under `~/.agents/plugins/<plugin-name>/`. For more about plugin-provided skills, hooks, and update behavior, see the [Plugins guide](/docs/guides/context-engineering/plugins).
@@ -594,7 +596,7 @@ List skills available to the goose agent.
 
 **Usage:**
 ```bash
-goose skills list
+openduck skills list
 ```
 
 ---
@@ -618,16 +620,16 @@ This command is available in goose builds that include local inference support.
 **Usage:**
 ```bash
 # Search for local models
-goose local-models search qwen --limit 5
+openduck local-models search qwen --limit 5
 
 # Download a model from a search result
-goose local-models download 'user/repo:Q4_K_M'
+openduck local-models download 'user/repo:Q4_K_M'
 
 # List downloaded models
-goose local-models list
+openduck local-models list
 
 # Delete a downloaded model
-goose local-models delete user/repo:Q4_K_M
+openduck local-models delete user/repo:Q4_K_M
 ```
 
 ---
@@ -651,22 +653,22 @@ Automate recipes by running them on a [schedule](/docs/guides/recipes/session-re
 
 **Usage:**
 ```bash
-goose schedule <COMMAND>
+openduck schedule <COMMAND>
 
 # Add a new scheduled recipe which runs every day at 9 AM
-goose schedule add --schedule-id daily-report --cron "0 0 9 * * *" --recipe-source ./recipes/daily-report.yaml
+openduck schedule add --schedule-id daily-report --cron "0 0 9 * * *" --recipe-source ./recipes/daily-report.yaml
 
 # List all scheduled jobs
-goose schedule list
+openduck schedule list
 
-# List the 10 most recent goose sessions created by a scheduled job
-goose schedule sessions --schedule-id daily-report -l 10
+# List the 10 most recent openduck sessions created by a scheduled job
+openduck schedule sessions --schedule-id daily-report -l 10
 
 # Run a recipe immediately
-goose schedule run-now --schedule-id daily-report
+openduck schedule run-now --schedule-id daily-report
 
 # Remove a scheduled job
-goose schedule remove --schedule-id daily-report
+openduck schedule remove --schedule-id daily-report
 ```
 
 ---
@@ -676,7 +678,7 @@ Run an enabled MCP server specified by `<name>` (e.g. `'Google Drive'`).
 
 **Usage:**
 ```bash
-goose mcp <name>
+openduck mcp <name>
 ```
 
 ---
@@ -691,11 +693,11 @@ ACP is an emerging protocol specification that standardizes communication betwee
 
 **Usage:**
 ```bash
-goose acp
+openduck acp
 ```
 
 :::info
-This command is automatically invoked by ACP-compatible clients and is not typically run directly by users. The client manages the lifecycle of the `goose acp` process. See [Using goose in ACP Clients](/docs/guides/acp-clients) for details.
+This command is automatically invoked by ACP-compatible clients and is not typically run directly by users. The client manages the lifecycle of the `openduck acp` process. See [Using goose in ACP Clients](/docs/guides/acp-clients) for details.
 :::
 
 ---
@@ -716,13 +718,13 @@ Start goose as an Agent Client Protocol (ACP) server over HTTP and WebSocket.
 export GOOSE_SERVER__SECRET_KEY=$(openssl rand -hex 32)
 
 # Start the ACP server on localhost:3284
-goose serve
+openduck serve
 
 # Bind to a different host and port
-goose serve --host 0.0.0.0 --port 3284
+openduck serve --host 0.0.0.0 --port 3284
 
 # Start with specific built-in extensions
-goose serve --with-builtin developer,memory
+openduck serve --with-builtin developer,memory
 ```
 
 :::warning
@@ -734,7 +736,7 @@ goose serve --with-builtin developer,memory
 ### Terminal Integration
 
 #### term
-Set up and use terminal-integrated sessions. Terminal integration gives each shell a persistent goose session through `AGENT_SESSION_ID`, and can create the `@goose` and `@g` aliases.
+Set up and use terminal-integrated sessions. Terminal integration gives each shell a persistent openduck session through `AGENT_SESSION_ID`, and can create the `@goose` and `@g` aliases.
 
 **Commands:**
 - **`init <SHELL>`** - Print the shell integration script for `bash`, `zsh`, `fish`, `nu`, or `powershell`
@@ -755,14 +757,14 @@ eval "$(goose term init zsh --default)"
 
 # Set up nushell integration
 let init = ($nu.cache-dir | path join "goose-term-init.nu")
-goose term init nu | save --force $init
+openduck term init nu | save --force $init
 source $init
 
 # Send a prompt to the current terminal session
-goose term run why did the last command fail
+openduck term run why did the last command fail
 
 # Print session info for prompt integration
-goose term info
+openduck term info
 ```
 
 ---
@@ -784,7 +786,7 @@ Ask goose questions directly from your shell prompt, with command history includ
 
 ### Slash Commands
 
-Once you're in an interactive session (via `goose session` or `goose run --interactive`), you can use these slash commands. All commands support tab completion. Press `/ + <Tab>` to cycle through available commands.
+Once you're in an interactive session (via `openduck session` or `openduck run --interactive`), you can use these slash commands. All commands support tab completion. Press `/ + <Tab>` to cycle through available commands.
 
 **Available Commands:**
 - **`/?` or `/help`** - Display the help menu
@@ -821,7 +823,7 @@ Once you're in an interactive session (via `goose session` or `goose run --inter
 # Clear the current conversation history
 /clear
 ```
-You can also create [custom slash commands for running recipes](/docs/guides/context-engineering/slash-commands) in goose Desktop or the CLI. 
+You can also create [custom slash commands for running recipes](/docs/guides/context-engineering/slash-commands) in OpenDuck Desktop or the CLI.
 
 ---
 
@@ -851,14 +853,14 @@ These accept any [bat theme name](https://github.com/sharkdp/bat#adding-new-them
 :::info
 Syntax highlighting styles only affect the font, not the overall terminal interface. The `light` and `dark` themes have subtle differences in font color and weight.
 
-The goose CLI theme is independent from the goose Desktop theme.
+The goose CLI theme is independent from the OpenDuck Desktop theme.
 :::
 
 **Examples:**
 ```bash
 # Set ANSI theme for the session via environment variable
 export GOOSE_CLI_THEME=ansi
-goose session --name use-custom-theme
+openduck session --name use-custom-theme
 
 # Toggle theme during a session
 /t
@@ -915,10 +917,10 @@ You can use any editor that accepts a file path argument, such as vim, nano, ema
   <TabItem value="config" label="Config File">
 
   Persists across all sessions unless overridden by the environment variable.
-  
+
   1. Navigate to the goose [configuration file](/docs/guides/config-files). For example, navigate to `~/.config/goose/config.yaml` on macOS.
   2. Add `GOOSE_PROMPT_EDITOR` and set it to your preferred editor:
-  
+
   ```yaml
   # For terminal editors like vim or nano
   GOOSE_PROMPT_EDITOR: vim

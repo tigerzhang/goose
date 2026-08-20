@@ -2,20 +2,20 @@
 
 ## Brand Guidelines
 
-**IMPORTANT**: The product name "goose" should ALWAYS be written in lowercase "g" in all documentation, blog posts, and any content within this documentation directory.
+The product name is **OpenDuck**. Write it with that capitalization in current documentation.
 
-- ✅ Correct: "goose", "using goose", "goose provides"
-- ❌ Incorrect: "Goose", "using Goose", "Goose provides"
+- ✅ Correct: "OpenDuck", "using OpenDuck", "OpenDuck provides"
+- ❌ Incorrect: "openduck" as the product name, "Open Duck"
 
-This is a brand guideline that must be strictly followed.
+The CLI binary is `openduck`. The legacy `goose` binary remains as an alias. Environment variables prefer `OPENDUCK_*`; matching `GOOSE_*` names are legacy aliases.
+
+Do **not** rewrite historical blog posts. Those remain as published.
 
 ## Context
 
 This rule applies to:
-- All markdown files in `/docs/`
-- All blog posts in `/blog/`
+- Current markdown guides in `/docs/` (getting started, CLI, environment variables, and other how-to docs)
 - README files
 - Configuration files with user-facing text
-- Any other documentation content
 
-When editing or creating content in this documentation directory, always ensure "goose" uses a lowercase "g".
+When editing or creating **new** content in this documentation directory, use OpenDuck / `openduck`. Historical `/blog/` posts should keep their original Goose branding unless you are correcting a factual error about current install or CLI usage.

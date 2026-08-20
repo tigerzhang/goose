@@ -25,7 +25,7 @@ function HeroSection() {
             className="button button--primary button--lg"
             to="docs/getting-started/installation"
           >
-            Install goose
+            Install OpenDuck
           </Link>
           <Link
             className={`button button--outline button--lg ${styles.secondaryButton}`}
@@ -91,9 +91,9 @@ function FeaturesSection() {
   return (
     <section className={styles.section}>
       <div className={styles.container}>
-        <h2 className={styles.sectionTitle}>What goose does</h2>
+        <h2 className={styles.sectionTitle}>What OpenDuck does</h2>
         <p className={styles.sectionSubtitle}>
-          goose is a general-purpose AI agent that runs on your machine. Not
+          OpenDuck is a general-purpose AI agent that runs on your machine. Not
           just for code — use it for research, writing, automation, data
           analysis, or anything you need to get done.
         </p>
@@ -157,7 +157,7 @@ function FeaturesSection() {
             title="MCP Apps"
             description={
               <p>
-                Extensions can render interactive UIs directly inside goose
+                Extensions can render interactive UIs directly inside OpenDuck
                 Desktop — buttons, forms, visualizations. A new way to build{" "}
                 <Link to="/docs/tutorials/building-mcp-apps">
                   agent-powered tools
@@ -208,7 +208,7 @@ function StandardsSection() {
             <p>
               <a href="https://modelcontextprotocol.io/" target="_blank" rel="noopener">MCP</a>{" "}
               is the open standard for connecting AI agents to tools and data
-              sources. goose was one of the earliest adopters and has one of the
+              sources. OpenDuck was one of the earliest adopters and has one of the
               deepest integrations in the ecosystem — with 70+ documented
               extensions and growing.
             </p>
@@ -218,16 +218,16 @@ function StandardsSection() {
             <h3>Agent Client Protocol</h3>
             <p>
               <a href="https://agentclientprotocol.com/" target="_blank" rel="noopener">ACP</a>{" "}
-              is a standard for communicating with coding agents. goose works as
+              is a standard for communicating with coding agents. OpenDuck works as
               an ACP server — connect from Zed, JetBrains, or VS Code — and can
               use ACP agents like Claude Code and Codex as providers.
             </p>
-            <Link to="/docs/guides/acp-clients">goose as ACP server →</Link>
+            <Link to="/docs/guides/acp-clients">OpenDuck as ACP server →</Link>
           </div>
           <div className={styles.standardCard}>
             <h3>Agentic AI Foundation</h3>
             <p>
-              goose is part of the{" "}
+              OpenDuck is part of the{" "}
               <a href="https://aaif.io/" target="_blank" rel="noopener">
                 Agentic AI Foundation
               </a>{" "}

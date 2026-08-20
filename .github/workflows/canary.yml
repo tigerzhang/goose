@@ -59,7 +59,9 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: download_cli.sh
-          path: download_cli.sh
+          path: |
+            download_cli.sh
+            download_cli.ps1
 
   # ------------------------------------------------------------
   # 4) Bundle CLI and Desktop (macOS ARM64)
@@ -151,14 +153,19 @@ jobs:
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
         with:
           subject-path: |
+            openduck-*.tar.bz2
+            openduck-*.tar.gz
+            openduck-*.zip
             goose-*.tar.bz2
             goose-*.tar.gz
             goose-*.zip
+            OpenDuck*.zip
             Goose*.zip
             *.deb
             *.rpm
             *.flatpak
             download_cli.sh
+            download_cli.ps1
 
       # Create/update the canary release
       - name: Release canary
@@ -168,14 +175,19 @@ jobs:
           name: Canary
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: |
+            openduck-*.tar.bz2
+            openduck-*.tar.gz
+            openduck-*.zip
             goose-*.tar.bz2
             goose-*.tar.gz
             goose-*.zip
+            OpenDuck*.zip
             Goose*.zip
             *.deb
             *.rpm
             *.flatpak
             download_cli.sh
+            download_cli.ps1
           allowUpdates: true
           omitBody: true
           omitPrereleaseDuringUpdate: true

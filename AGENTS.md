@@ -1,6 +1,7 @@
 # AGENTS Instructions
 
-goose is an AI agent framework in Rust with CLI and Electron desktop interfaces.
+OpenDuck is an AI agent framework in Rust with CLI and Electron desktop interfaces.
+The CLI binary is `openduck` (legacy alias `goose` still works). Workspace crates use the `openduck-*` prefix.
 
 ## Contribution Workflow
 
@@ -18,7 +19,7 @@ Maintainer-directed work, urgent security fixes, release automation, and local o
 
 ## Agent Loop Migration
 
-We are replacing the legacy agent loop in `crates/goose/src/agents/agent.rs` with the state machine in `crates/goose/src/agents/state_machine/`. The state-machine path is enabled with `GOOSE_STATE_MACHINE=1`.
+We are replacing the legacy agent loop in `crates/openduck/src/agents/agent.rs` with the state machine in `crates/openduck/src/agents/state_machine/`. The state-machine path is enabled with `OPENDUCK_STATE_MACHINE=1` (legacy `GOOSE_STATE_MACHINE=1` still works).
 
 Until the migration is complete, changes to agent-loop behavior must be implemented and tested in both paths. When reviewing code, check whether a change to either path also applies to the other and flag missing parity.
 
@@ -33,15 +34,15 @@ cargo build
 ### Build
 ```bash
 cargo build                   # debug
-cargo build --release         # release  
+cargo build --release         # release
 just release-binary           # release binary
 ```
 
 ### Test
 ```bash
 cargo test                   # all tests
-cargo test -p goose          # specific crate
-cargo test --package goose --test mcp_integration_test
+cargo test -p openduck       # specific crate
+cargo test --package openduck --test mcp_integration_test
 just record-mcp-tests        # record MCP
 ```
 
@@ -61,12 +62,12 @@ cd ui/desktop && pnpm test   # test UI
 ## Structure
 ```
 crates/
-├── goose              # core logic
-├── goose-acp-macros   # ACP proc macros
-├── goose-cli          # CLI entry
-├── goose-mcp          # MCP extensions
-├── goose-test         # test utilities
-└── goose-test-support # test helpers
+├── openduck              # core logic
+├── openduck-acp-macros   # ACP proc macros
+├── openduck-cli          # CLI entry (`openduck`, plus legacy `goose` and `duck`)
+├── openduck-mcp          # MCP extensions
+├── openduck-test         # test utilities
+└── openduck-test-support # test helpers
 
 ui/desktop/            # Electron app
 ```
@@ -87,11 +88,11 @@ ui/desktop/            # Electron app
 
 ## Rules
 
-- Test: Prefer tests/ folder, e.g. crates/goose/tests/
-- Test: When adding features, update goose-self-test.yaml, rebuild, then run `goose run --recipe goose-self-test.yaml` to validate
+- Test: Prefer tests/ folder, e.g. crates/openduck/tests/
+- Test: When adding features, update openduck-self-test.yaml, rebuild, then run `openduck run --recipe openduck-self-test.yaml` to validate
 - Error: Use anyhow::Result
 - Provider: Implement Provider trait see providers/base.rs
-- MCP: Extensions in crates/goose-mcp/
+- MCP: Extensions in crates/openduck-mcp/
 - UI Desktop: Use ACP SDK types or local `src/types/*` types. Do not import generated OpenAPI types/client code from `ui/desktop/src/api`
 
 ## Code Quality
@@ -116,6 +117,6 @@ ui/desktop/            # Electron app
 - Never: Overwrite a live binary in place (e.g. `cp`/`fs.copyFileSync` onto an existing executable) - unlink or atomic-rename the destination first, otherwise macOS SIGKILLs running processes with "Code Signature Invalid"
 
 ## Entry Points
-- CLI: crates/goose-cli/src/main.rs
+- CLI: crates/openduck-cli/src/main.rs
 - UI: ui/desktop/src/main.ts
-- Agent: crates/goose/src/agents/agent.rs
+- Agent: crates/openduck/src/agents/agent.rs

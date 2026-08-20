@@ -25,12 +25,12 @@ release-binary:
 # Build Windows executable on a Windows host
 [unix]
 release-windows:
-    @echo "just release-windows requires a Windows host because Goose Windows releases build the MSVC target. Use .github/workflows/bundle-windows.yml for CI builds."
+    @echo "just release-windows requires a Windows host because OpenDuck Windows releases build the MSVC target. Use .github/workflows/bundle-windows.yml for CI builds."
     @exit 1
 
 [windows]
 release-windows:
-    @powershell.exe -NoProfile -ExecutionPolicy Bypass -Command 'rustup target add x86_64-pc-windows-msvc; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; cargo build --release --target x86_64-pc-windows-msvc -p openduck-cli --bin goose; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Write-Host "Windows executable created at ./target/x86_64-pc-windows-msvc/release/goose.exe"'
+    @powershell.exe -NoProfile -ExecutionPolicy Bypass -Command 'rustup target add x86_64-pc-windows-msvc; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; cargo build --release --target x86_64-pc-windows-msvc -p openduck-cli --bin openduck --bin goose; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Write-Host "Windows executable created at ./target/x86_64-pc-windows-msvc/release/openduck.exe"'
 
 # Build for Intel Mac
 release-intel:
@@ -107,20 +107,20 @@ run-ui-playwright:
     #!/usr/bin/env sh
     just release-binary
     echo "Running UI with Playwright debugging..."
-    RUN_DIR="$HOME/goose-runs/$(date +%Y%m%d-%H%M%S)"
+    RUN_DIR="$HOME/openduck-runs/$(date +%Y%m%d-%H%M%S)"
     mkdir -p "$RUN_DIR"
     echo "Using isolated directory: $RUN_DIR"
-    cd ui/desktop && ENABLE_PLAYWRIGHT=true GOOSE_PATH_ROOT="$RUN_DIR" pnpm run start-gui
+    cd ui/desktop && ENABLE_PLAYWRIGHT=true OPENDUCK_PATH_ROOT="$RUN_DIR" pnpm run start-gui
 
 run-ui-only:
     @echo "Running UI..."
     cd ui/desktop && pnpm install && pnpm run start-gui
 
 debug-ui:
-    @echo "🚀 Starting goose frontend in external ACP backend mode"
+    @echo "🚀 Starting OpenDuck frontend in external ACP backend mode"
     cd ui/desktop && \
-    export GOOSE_EXTERNAL_BACKEND=true && \
-    export GOOSE_SERVER__SECRET_KEY="${GOOSE_SERVER__SECRET_KEY:-test}" && \
+    export OPENDUCK_EXTERNAL_BACKEND=true && \
+    export OPENDUCK_SERVER__SECRET_KEY="${OPENDUCK_SERVER__SECRET_KEY:-${GOOSE_SERVER__SECRET_KEY:-test}}" && \
     pnpm install && \
     pnpm run start-gui
 
@@ -132,7 +132,7 @@ debug-ui:
 # 4. If not auto-detected, click "Configure" and add: localhost:9229
 
 debug-ui-main-process:
-	@echo "🔍 Starting goose UI with main process debugging enabled"
+	@echo "🔍 Starting OpenDuck UI with main process debugging enabled"
 	@just release-binary
 	cd ui/desktop && \
 	pnpm install && \
@@ -145,8 +145,8 @@ package-ui:
     @echo "Packaging desktop app..."
     cd ui/desktop && pnpm install && pnpm run package
     @echo "Signing with entitlements..."
-    codesign --force --deep --sign - --entitlements ui/desktop/entitlements.plist ui/desktop/out/Goose-darwin-arm64/Goose.app
-    @echo "Done! Launch with: open ui/desktop/out/Goose-darwin-arm64/Goose.app"
+    codesign --force --deep --sign - --entitlements ui/desktop/entitlements.plist ui/desktop/out/OpenDuck-darwin-arm64/OpenDuck.app
+    @echo "Done! Launch with: open ui/desktop/out/OpenDuck-darwin-arm64/OpenDuck.app"
 
 # Run UI with latest (Windows version)
 run-ui-windows:
@@ -163,7 +163,7 @@ run-docs:
 # Run server
 run-server:
     @echo "Running external ACP backend..."
-    GOOSE_SERVER__SECRET_KEY="${GOOSE_SERVER__SECRET_KEY:-test}" cargo run -p openduck-cli --bin goose -- serve --platform desktop --enable-scheduler --host 127.0.0.1 --port 3000
+    OPENDUCK_SERVER__SECRET_KEY="${OPENDUCK_SERVER__SECRET_KEY:-${GOOSE_SERVER__SECRET_KEY:-test}}" cargo run -p openduck-cli --bin openduck -- serve --platform desktop --enable-scheduler --host 127.0.0.1 --port 3000
 
 # Check if generated ACP schema and TypeScript types are up-to-date
 check-acp-schema: generate-acp-types
@@ -215,7 +215,7 @@ make-ui:
 # make GUI with latest Windows binary on a Windows host
 [unix]
 make-ui-windows:
-    @echo "just make-ui-windows requires a Windows host because Goose Windows releases build the MSVC target. Use .github/workflows/bundle-windows.yml for CI builds."
+    @echo "just make-ui-windows requires a Windows host because OpenDuck Windows releases build the MSVC target. Use .github/workflows/bundle-windows.yml for CI builds."
     @exit 1
 
 [windows]
@@ -435,5 +435,5 @@ build-test-tools:
   cargo build -p openduck-test
 
 record-mcp-tests: build-test-tools
-  GOOSE_RECORD_MCP=1 cargo test --package openduck --test mcp_integration_test
+  OPENDUCK_RECORD_MCP=1 GOOSE_RECORD_MCP=1 cargo test --package openduck --test mcp_integration_test
   git add crates/openduck/tests/mcp_replays/

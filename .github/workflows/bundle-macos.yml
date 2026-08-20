@@ -64,8 +64,8 @@ on:
 name: "Bundle CLI and Desktop (macOS)"
 
 jobs:
-  build-goose:
-    name: Build Goose (macOS)
+  build-openduck:
+    name: Build OpenDuck (macOS)
     runs-on: ${{ inputs.target == 'x86_64-apple-darwin' && 'macos-15-intel' || 'macos-latest' }}
     env:
       MACOSX_DEPLOYMENT_TARGET: "12.0"
@@ -133,26 +133,29 @@ jobs:
         with:
           key: ${{ inputs.target == 'x86_64-apple-darwin' && 'intel-macos-deployment-target-12' || 'macos-deployment-target-12' }}
 
-      - name: Build goose
+      - name: Build OpenDuck
         env:
           TARGET: ${{ inputs.target }}
         run: |
           source ./bin/activate-hermit
           rustup target add "$TARGET"
-          cargo build --release -p openduck-cli --bin goose --target "$TARGET"
+          cargo build --release -p openduck-cli --bin openduck --bin goose --target "$TARGET"
 
       - name: Prepare binary artifact
         env:
           TARGET: ${{ inputs.target }}
         run: |
           mkdir -p artifacts
+          cp "target/${TARGET}/release/openduck" "artifacts/internal-openduck-${TARGET}"
           cp "target/${TARGET}/release/goose" "artifacts/internal-goose-${TARGET}"
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
-          name: internal-goose-${{ inputs.target }}
-          path: artifacts/internal-goose-${{ inputs.target }}
+          name: internal-openduck-${{ inputs.target }}
+          path: |
+            artifacts/internal-openduck-${{ inputs.target }}
+            artifacts/internal-goose-${{ inputs.target }}
           if-no-files-found: error
           retention-days: 1
           overwrite: true
@@ -160,31 +163,38 @@ jobs:
   package-cli:
     name: Package CLI (macOS)
     if: ${{ inputs.package_cli }}
-    needs: build-goose
+    needs: build-openduck
     runs-on: ubuntu-latest
     permissions: {}
     steps:
       - name: Download binary artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
-          name: internal-goose-${{ inputs.target }}
+          name: internal-openduck-${{ inputs.target }}
           path: package
 
       - name: Package CLI
         env:
           TARGET: ${{ inputs.target }}
         run: |
-          mv "package/internal-goose-${TARGET}" package/goose
-          chmod +x package/goose
+          mkdir -p staged
+          mv "package/internal-openduck-${TARGET}" staged/openduck
+          mv "package/internal-goose-${TARGET}" staged/goose
+          chmod +x staged/openduck staged/goose
           mkdir -p dist
-          tar -cjf "dist/goose-${TARGET}.tar.bz2" -C package .
-          tar -czf "dist/goose-${TARGET}.tar.gz" -C package .
+          tar -cjf "dist/openduck-${TARGET}.tar.bz2" -C staged .
+          tar -czf "dist/openduck-${TARGET}.tar.gz" -C staged .
+          # Legacy goose-* names remain as aliases for existing download scripts.
+          cp "dist/openduck-${TARGET}.tar.bz2" "dist/goose-${TARGET}.tar.bz2"
+          cp "dist/openduck-${TARGET}.tar.gz" "dist/goose-${TARGET}.tar.gz"
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
-          name: goose-${{ inputs.target }}
+          name: openduck-${{ inputs.target }}
           path: |
+            dist/openduck-${{ inputs.target }}.tar.bz2
+            dist/openduck-${{ inputs.target }}.tar.gz
             dist/goose-${{ inputs.target }}.tar.bz2
             dist/goose-${{ inputs.target }}.tar.gz
           if-no-files-found: error
@@ -193,7 +203,7 @@ jobs:
   package-desktop:
     name: Package Desktop (macOS)
     if: ${{ inputs.package_desktop }}
-    needs: build-goose
+    needs: build-openduck
     runs-on: ${{ inputs.target == 'x86_64-apple-darwin' && 'macos-15-intel' || 'macos-latest' }}
     environment: ${{ inputs.environment || '' }}
     env:
@@ -223,16 +233,17 @@ jobs:
       - name: Download binary artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
-          name: internal-goose-${{ inputs.target }}
+          name: internal-openduck-${{ inputs.target }}
           path: ui/desktop/src/bin
 
       - name: Prepare desktop backend
         env:
           TARGET: ${{ inputs.target }}
         run: |
-          rm -f ui/desktop/src/bin/goose
+          rm -f ui/desktop/src/bin/openduck ui/desktop/src/bin/goose
+          mv "ui/desktop/src/bin/internal-openduck-${TARGET}" ui/desktop/src/bin/openduck
           mv "ui/desktop/src/bin/internal-goose-${TARGET}" ui/desktop/src/bin/goose
-          chmod +x ui/desktop/src/bin/goose
+          chmod +x ui/desktop/src/bin/openduck ui/desktop/src/bin/goose
           ls -la ui/desktop/src/bin/
 
       - name: Cache pnpm dependencies
@@ -288,7 +299,7 @@ jobs:
 
       - name: Verify macOS updater resources
         env:
-          APP_PATH: ${{ inputs.target == 'x86_64-apple-darwin' && 'out/Goose-darwin-x64/Goose.app' || 'out/Goose-darwin-arm64/Goose.app' }}
+          APP_PATH: ${{ inputs.target == 'x86_64-apple-darwin' && 'out/OpenDuck-darwin-x64/OpenDuck.app' || 'out/OpenDuck-darwin-arm64/OpenDuck.app' }}
         run: node scripts/verify-mac-update-resources.js "$APP_PATH"
         working-directory: ui/desktop
 
@@ -301,31 +312,31 @@ jobs:
 
       - name: Final cleanup before artifact upload
         run: |
-          rm -f ui/desktop/src/bin/goose
+          rm -f ui/desktop/src/bin/openduck ui/desktop/src/bin/goose
           df -h
 
       - name: Upload Desktop artifact
         id: upload-app-bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
-          name: ${{ inputs.target == 'x86_64-apple-darwin' && 'Goose-darwin-x64' || 'Goose-darwin-arm64' }}
-          path: ${{ inputs.target == 'x86_64-apple-darwin' && 'ui/desktop/out/Goose-darwin-x64/Goose_intel_mac.zip' || 'ui/desktop/out/Goose-darwin-arm64/Goose.zip' }}
+          name: ${{ inputs.target == 'x86_64-apple-darwin' && 'OpenDuck-darwin-x64' || 'OpenDuck-darwin-arm64' }}
+          path: ${{ inputs.target == 'x86_64-apple-darwin' && 'ui/desktop/out/OpenDuck-darwin-x64/OpenDuck_intel_mac.zip' || 'ui/desktop/out/OpenDuck-darwin-arm64/OpenDuck.zip' }}
           if-no-files-found: error
           overwrite: true
 
       - name: Quick launch test (macOS)
         env:
-          APP_PATH: ${{ inputs.target == 'x86_64-apple-darwin' && 'ui/desktop/out/Goose-darwin-x64/Goose.app' || 'ui/desktop/out/Goose-darwin-arm64/Goose.app' }}
+          APP_PATH: ${{ inputs.target == 'x86_64-apple-darwin' && 'ui/desktop/out/OpenDuck-darwin-x64/OpenDuck.app' || 'ui/desktop/out/OpenDuck-darwin-arm64/OpenDuck.app' }}
         run: |
           xattr -cr "$APP_PATH"
-          echo "Opening Goose.app..."
+          echo "Opening OpenDuck.app..."
           open -g "$APP_PATH"
           sleep 5
 
-          if pgrep -f "Goose.app/Contents/MacOS/Goose" > /dev/null; then
+          if pgrep -f "OpenDuck.app/Contents/MacOS/OpenDuck" > /dev/null; then
             echo "App appears to be running."
           else
             echo "App did not stay open. Possible crash or startup error."
             exit 1
           fi
-          pkill -f "Goose.app/Contents/MacOS/Goose"
+          pkill -f "OpenDuck.app/Contents/MacOS/OpenDuck"

@@ -19,7 +19,7 @@ type SidebarItem = {
 };
 
 const config: Config = {
-  title: "goose | Your open source AI agent",
+  title: "OpenDuck | Your open source AI agent",
   tagline: "your local AI agent, automating engineering tasks seamlessly",
   favicon: "img/favicon.ico",
 
@@ -431,7 +431,7 @@ const config: Config = {
     navbar: {
       title: "",
       logo: {
-        alt: "goose Logo", // TODO: replace logo assets with AAIF branding
+        alt: "OpenDuck Logo",
         src: "img/logo_light.png",
         srcDark: "img/logo_dark.png",
       },
@@ -490,7 +490,7 @@ const config: Config = {
           title: "Quick Links",
           items: [
             {
-              label: "Install goose",
+              label: "Install OpenDuck",
               to: "docs/getting-started/installation",
             },
             {

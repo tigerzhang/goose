@@ -77,15 +77,15 @@ jobs:
         with:
           node-version: '20'
       
-      - name: Install goose CLI
+      - name: Install OpenDuck CLI
         run: |
           mkdir -p /home/runner/.local/bin
           curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh \
-            | CONFIGURE=false GOOSE_BIN_DIR=/home/runner/.local/bin bash
+            | CONFIGURE=false OPENDUCK_BIN_DIR=/home/runner/.local/bin bash
           echo "/home/runner/.local/bin" >> $GITHUB_PATH
-          goose --version
+          openduck --version
       
-      - name: Configure goose for CI
+      - name: Configure OpenDuck for CI
         env:
           GOOSE_PROVIDER: ${{ vars.GOOSE_PROVIDER || 'anthropic' }}
           GOOSE_MODEL: ${{ vars.GOOSE_MODEL || 'claude-opus-4-5' }}

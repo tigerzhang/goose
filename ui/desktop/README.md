@@ -59,7 +59,7 @@ For Linux builds, first ensure you have the required system dependencies install
 1. Build the Rust binary:
 ```bash
 cd ../..  # Go to project root
-cargo build --release -p goose-cli --bin goose
+cargo build --release -p openduck-cli --bin openduck --bin goose
 ```
 
 2. Copy the binary to the expected location:
@@ -95,11 +95,11 @@ Use the existing Windows build process as documented.
 From the project root, start the ACP backend:
 
 ```bash
-GOOSE_SERVER__SECRET_KEY=test cargo run -p goose-cli --bin goose -- serve --platform desktop --enable-scheduler --host 127.0.0.1 --port 3000
+OPENDUCK_SERVER__SECRET_KEY=test cargo run -p openduck-cli --bin openduck -- serve --platform desktop --enable-scheduler --host 127.0.0.1 --port 3000
 ```
 
 Then start the desktop app from `ui/desktop`:
 
 ```bash
-GOOSE_EXTERNAL_BACKEND=true GOOSE_EXTERNAL_BACKEND_URL=http://127.0.0.1:3000 GOOSE_SERVER__SECRET_KEY=test pnpm run start-gui
+OPENDUCK_EXTERNAL_BACKEND=true OPENDUCK_EXTERNAL_BACKEND_URL=http://127.0.0.1:3000 OPENDUCK_SERVER__SECRET_KEY=test pnpm run start-gui
 ```
