@@ -886,3 +886,16 @@ impl ServerHandler for ComputerControllerServer {
             .with_instructions(self.instructions.clone())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_info() {
+        let server = ComputerControllerServer::new();
+        let info = server.get_info();
+        assert_eq!(info.server_info.name, "openduck-computercontroller");
+        assert!(info.instructions.is_some());
+    }
+}

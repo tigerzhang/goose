@@ -80,13 +80,27 @@ impl Provider for MockProvider {
     }
 }
 
+fn brand_meta(meta: &serde_json::Map<String, serde_json::Value>) -> Option<&serde_json::Value> {
+    match (meta.get("openduck"), meta.get("goose")) {
+        (None, None) => None,
+        (Some(openduck), Some(goose)) => {
+            assert_eq!(
+                openduck, goose,
+                "ACP brand meta must dual-write matching openduck and goose values"
+            );
+            Some(openduck)
+        }
+        (openduck, goose) => panic!(
+            "ACP brand meta must dual-write openduck and goose, got openduck={openduck:?} goose={goose:?}"
+        ),
+    }
+}
+
 fn active_run_id_from_update(update: &SessionUpdate) -> Option<String> {
     let SessionUpdate::SessionInfoUpdate(info) = update else {
         return None;
     };
-    info.meta
-        .as_ref()?
-        .get("goose")?
+    brand_meta(info.meta.as_ref()?)?
         .get("activeRunId")?
         .as_str()
         .map(ToString::to_string)
@@ -99,9 +113,7 @@ fn queued_steer_message_ids(updates: &[SessionUpdate]) -> Vec<String> {
             let SessionUpdate::SessionInfoUpdate(info) = update else {
                 return None;
             };
-            info.meta
-                .as_ref()?
-                .get("goose")?
+            brand_meta(info.meta.as_ref()?)?
                 .get("queuedSteer")?
                 .get("messageId")?
                 .as_str()
@@ -117,7 +129,7 @@ fn steer_chunk_message_ids(updates: &[SessionUpdate]) -> Vec<String> {
             let SessionUpdate::UserMessageChunk(chunk) = update else {
                 return None;
             };
-            let goose = chunk.meta.as_ref()?.get("goose")?;
+            let goose = brand_meta(chunk.meta.as_ref()?)?;
             goose.get("steer")?.as_bool().filter(|b| *b)?;
             goose.get("messageId")?.as_str().map(ToString::to_string)
         })
@@ -140,7 +152,7 @@ fn steer_chunk_texts(updates: &[SessionUpdate]) -> Vec<String> {
             let is_steer = chunk
                 .meta
                 .as_ref()
-                .and_then(|m| m.get("goose"))
+                .and_then(brand_meta)
                 .and_then(|g| g.get("steer"))
                 .and_then(|s| s.as_bool())
                 .unwrap_or(false);

@@ -7,7 +7,7 @@ if [ "$#" -lt 1 ]; then
 fi
 
 native_lib="$1"
-resource_prefix="${2:-$(crates/goose-sdk/scripts/maven-resource-prefix.sh)}"
+resource_prefix="${2:-$(crates/openduck-sdk/scripts/maven-resource-prefix.sh)}"
 
 case "$resource_prefix" in
   darwin-aarch64|darwin-x86-64|linux-x86-64|linux-aarch64|win32-x86-64) ;;
@@ -19,12 +19,12 @@ if [ ! -f "$native_lib" ]; then
   exit 1
 fi
 
-bindgen="target/release/goose-uniffi-bindgen"
+bindgen="target/release/openduck-uniffi-bindgen"
 if [ ! -x "$bindgen" ]; then
-  cargo build -p goose-sdk --features uniffi --release -q
+  cargo build -p openduck-sdk --features uniffi --release -q
 fi
 
-maven_dir="crates/goose-sdk/maven"
+maven_dir="crates/openduck-sdk/maven"
 kotlin_dir="$maven_dir/src/main/kotlin"
 support_kotlin_dir="$maven_dir/src/support/kotlin"
 resources_dir="$maven_dir/src/main/resources"
@@ -35,7 +35,7 @@ cp LICENSE "$resources_dir/META-INF/LICENSE"
 
 "$bindgen" generate \
   --library "$native_lib" \
-  --config crates/goose-sdk/uniffi.toml \
+  --config crates/openduck-sdk/uniffi.toml \
   --language kotlin \
   --no-format \
   --out-dir "$kotlin_dir" 2>/dev/null

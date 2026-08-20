@@ -84,7 +84,8 @@ fn include_last_message_snippet_from_meta(
     }
 
     let Some(goose_meta) = value.as_object() else {
-        return Err(agent_client_protocol::Error::invalid_params().data("goose must be an object"));
+        return Err(agent_client_protocol::Error::invalid_params()
+            .data("openduck/goose meta must be an object"));
     };
     let Some(value) = goose_meta.get("includeLastMessageSnippet") else {
         return Ok(false);
@@ -95,7 +96,7 @@ fn include_last_message_snippet_from_meta(
 
     value.as_bool().ok_or_else(|| {
         agent_client_protocol::Error::invalid_params()
-            .data("goose.includeLastMessageSnippet must be a boolean")
+            .data("openduck/goose.includeLastMessageSnippet must be a boolean")
     })
 }
 

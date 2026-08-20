@@ -133,7 +133,7 @@ jobs:
             FEATURE_ARGS=(--features vulkan)
           fi
 
-          cargo build --release --target ${TARGET} -p goose-cli --bin goose "${FEATURE_ARGS[@]}"
+          cargo build --release --target ${TARGET} -p openduck-cli --bin goose "${FEATURE_ARGS[@]}"
 
       - name: Copy backend binary into Electron folder
         run: |

@@ -2166,6 +2166,19 @@ mod validation_tests {
 }
 
 #[cfg(test)]
+mod server_info_tests {
+    use super::*;
+
+    #[test]
+    fn test_get_info() {
+        let server = AutoVisualiserRouter::new();
+        let info = server.get_info();
+        assert_eq!(info.server_info.name, "openduck-autovisualiser");
+        assert!(info.instructions.is_some());
+    }
+}
+
+#[cfg(test)]
 mod lenient_data_tests {
     use super::*;
     use serde_json::json;

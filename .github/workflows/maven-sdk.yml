@@ -44,7 +44,7 @@ jobs:
 
       - name: Build native library
         shell: bash
-        run: cargo build -p goose-sdk --features uniffi --release
+        run: cargo build -p openduck-sdk --features uniffi --release
 
       - name: Stage native library
         shell: bash
@@ -95,23 +95,23 @@ jobs:
       - name: Generate Kotlin bindings
         shell: bash
         run: |
-          cargo build -p goose-sdk --features uniffi --release
-          crates/goose-sdk/scripts/prepare-maven-package.sh \
+          cargo build -p openduck-sdk --features uniffi --release
+          crates/openduck-sdk/scripts/prepare-maven-package.sh \
             target/release/libgoose_sdk.so \
             linux-x86-64
 
       - name: Restore downloaded native libraries
         shell: bash
-        run: cp -R native-artifacts/* crates/goose-sdk/maven/src/main/resources/
+        run: cp -R native-artifacts/* crates/openduck-sdk/maven/src/main/resources/
 
       - name: Build Maven publication
-        working-directory: crates/goose-sdk/maven
+        working-directory: crates/openduck-sdk/maven
         run: gradle --no-daemon publishToMavenLocal
 
       - name: Stage Maven local artifacts
         shell: bash
         run: |
-          version=$(grep -m1 '^version =' crates/goose-sdk/Cargo.toml | sed -E 's/version = "([^"]+)"/\1/')
+          version=$(grep -m1 '^version =' crates/openduck-sdk/Cargo.toml | sed -E 's/version = "([^"]+)"/\1/')
           mkdir -p maven-artifacts
           cp -R "$HOME/.m2/repository/io/github/aaif-goose/gdk/$version" maven-artifacts/
 
@@ -154,17 +154,17 @@ jobs:
       - name: Generate Kotlin bindings
         shell: bash
         run: |
-          cargo build -p goose-sdk --features uniffi --release
-          crates/goose-sdk/scripts/prepare-maven-package.sh \
+          cargo build -p openduck-sdk --features uniffi --release
+          crates/openduck-sdk/scripts/prepare-maven-package.sh \
             target/release/libgoose_sdk.so \
             linux-x86-64
 
       - name: Restore downloaded native libraries
         shell: bash
-        run: cp -R native-artifacts/* crates/goose-sdk/maven/src/main/resources/
+        run: cp -R native-artifacts/* crates/openduck-sdk/maven/src/main/resources/
 
       - name: Publish to Maven Central
-        working-directory: crates/goose-sdk/maven
+        working-directory: crates/openduck-sdk/maven
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_TOKEN_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_TOKEN_PASSWORD }}

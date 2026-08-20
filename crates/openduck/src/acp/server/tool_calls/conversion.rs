@@ -427,15 +427,15 @@ mod tests {
                 tool_call.raw_input,
                 Some(serde_json::Value::Object(arguments))
             );
-            assert_eq!(
-                tool_call.meta.as_ref().and_then(|meta| meta.get("goose")),
-                Some(&serde_json::json!({
-                    "toolCall": {
-                        "toolName": "edit",
-                        "extensionName": "developer",
-                    },
-                }))
-            );
+            let expected = serde_json::json!({
+                "toolCall": {
+                    "toolName": "edit",
+                    "extensionName": "developer",
+                },
+            });
+            let meta = tool_call.meta.as_ref().expect("expected tool call meta");
+            assert_eq!(meta.get("openduck"), Some(&expected));
+            assert_eq!(meta.get("goose"), Some(&expected));
         }
 
         #[test]
@@ -592,15 +592,14 @@ mod tests {
 
             let meta = goose_tool_call_meta(&request).expect("expected metadata");
 
-            assert_eq!(
-                meta.get("goose"),
-                Some(&serde_json::json!({
-                    "toolCall": {
-                        "toolName": "other__query-docs",
-                        "extensionName": "context7",
-                    },
-                })),
-            );
+            let expected = serde_json::json!({
+                "toolCall": {
+                    "toolName": "other__query-docs",
+                    "extensionName": "context7",
+                },
+            });
+            assert_eq!(meta.get("openduck"), Some(&expected));
+            assert_eq!(meta.get("goose"), Some(&expected));
         }
     }
 
@@ -754,16 +753,15 @@ mod tests {
             })));
 
             let extracted = trusted_update_meta(&response).expect("expected trusted meta");
-            assert_eq!(
-                extracted.get("goose"),
-                Some(&serde_json::json!({
-                    "mcpApp": {
-                        "resourceUri": "ui://trusted/app",
-                        "extensionName": "weather",
-                        "toolName": "weather__render",
-                    },
-                })),
-            );
+            let expected = serde_json::json!({
+                "mcpApp": {
+                    "resourceUri": "ui://trusted/app",
+                    "extensionName": "weather",
+                    "toolName": "weather__render",
+                },
+            });
+            assert_eq!(extracted.get("openduck"), Some(&expected));
+            assert_eq!(extracted.get("goose"), Some(&expected));
         }
     }
 

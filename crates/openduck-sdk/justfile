@@ -3,19 +3,19 @@ set working-directory := '../..'
 
 lib_ext := if os() == "macos" { "dylib" } else if os() == "windows" { "dll" } else { "so" }
 lib_prefix := if os() == "windows" { "" } else { "lib" }
-lib_name := lib_prefix + "goose_sdk." + lib_ext
+lib_name := lib_prefix + "openduck_sdk." + lib_ext
 debug_lib_dir := "./target/debug"
 release_lib_dir := "./target/release"
 debug_lib_path := debug_lib_dir / lib_name
 release_lib_path := release_lib_dir / lib_name
-debug_bindgen := "./target/debug/goose-uniffi-bindgen"
-release_bindgen := "./target/release/goose-uniffi-bindgen"
-config := "./crates/goose-sdk/uniffi.toml"
-gen_dir := "./crates/goose-sdk/generated"
-examples_dir := "./crates/goose-sdk/examples/uniffi"
-python_dir := "./crates/goose-sdk/python"
+debug_bindgen := "./target/debug/openduck-uniffi-bindgen"
+release_bindgen := "./target/release/openduck-uniffi-bindgen"
+config := "./crates/openduck-sdk/uniffi.toml"
+gen_dir := "./crates/openduck-sdk/generated"
+examples_dir := "./crates/openduck-sdk/examples/uniffi"
+python_dir := "./crates/openduck-sdk/python"
 python_package_dir := python_dir / "src/goose"
-maven_dir := "./crates/goose-sdk/maven"
+maven_dir := "./crates/openduck-sdk/maven"
 maven_resources_dir := maven_dir / "src/main/resources"
 maven_kotlin_dir := maven_dir / "src/main/kotlin"
 
@@ -23,10 +23,10 @@ _default:
     @just --list --justfile {{justfile()}}
 
 _build:
-    cargo build -p goose-sdk --features uniffi -q
+    cargo build -p openduck-sdk --features uniffi -q
 
 _build-release:
-    cargo build -p goose-sdk --features uniffi --release -q
+    cargo build -p openduck-sdk --features uniffi --release -q
 
 _generate lang: _build
     {{debug_bindgen}} generate --library {{debug_lib_path}} --config {{config}} --language {{lang}} --no-format --out-dir {{gen_dir}} 2>/dev/null
@@ -42,8 +42,8 @@ kotlin: maven-package
 
 python-bindings profile="debug":
     @case "{{profile}}" in \
-        debug) cargo build -p goose-sdk --features uniffi -q; bindgen={{debug_bindgen}}; lib_path={{debug_lib_path}} ;; \
-        release) cargo build -p goose-sdk --features uniffi --release -q; bindgen={{release_bindgen}}; lib_path={{release_lib_path}} ;; \
+        debug) cargo build -p openduck-sdk --features uniffi -q; bindgen={{debug_bindgen}}; lib_path={{debug_lib_path}} ;; \
+        release) cargo build -p openduck-sdk --features uniffi --release -q; bindgen={{release_bindgen}}; lib_path={{release_lib_path}} ;; \
         *) echo 'profile must be debug or release' >&2; exit 1 ;; \
     esac; \
     rm -rf {{python_package_dir}}; \
@@ -71,11 +71,11 @@ python-publish repository="pypi": python-wheel
 
 maven-bindings profile="release":
     @case "{{profile}}" in \
-        debug) cargo build -p goose-sdk --features uniffi -q; lib_path={{debug_lib_path}} ;; \
-        release) cargo build -p goose-sdk --features uniffi --release -q; lib_path={{release_lib_path}} ;; \
+        debug) cargo build -p openduck-sdk --features uniffi -q; lib_path={{debug_lib_path}} ;; \
+        release) cargo build -p openduck-sdk --features uniffi --release -q; lib_path={{release_lib_path}} ;; \
         *) echo 'profile must be debug or release' >&2; exit 1 ;; \
     esac; \
-    crates/goose-sdk/scripts/prepare-maven-package.sh "$lib_path"
+    crates/openduck-sdk/scripts/prepare-maven-package.sh "$lib_path"
 
 maven-clean:
     rm -rf {{maven_dir}}/build {{maven_kotlin_dir}} {{maven_resources_dir}}
@@ -167,7 +167,7 @@ bump-version rust_version:
             )
         path.write_text(text)
 
-    pyproject = Path("crates/goose-sdk/python/pyproject.toml")
+    pyproject = Path("crates/openduck-sdk/python/pyproject.toml")
     replace_unique(pyproject, r'^version\s*=\s*"[^"]+"', f'version = "{python_version}"')
 
     print(f"Rust crates: {rust_version}")

@@ -535,7 +535,7 @@ fn replace_binary(new_binary: &Path, current_exe: &Path) -> Result<()> {
         // Rename the running binary out of the way
         fs::rename(current_exe, &old_exe).with_context(|| {
             format!(
-                "Failed to rename running binary to {}. Try closing Goose Desktop if it's open.",
+                "Failed to rename running binary to {}. Try closing OpenDuck Desktop if it's open.",
                 old_exe.display()
             )
         })?;

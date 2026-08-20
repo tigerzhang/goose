@@ -527,6 +527,14 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
+    fn test_get_info() {
+        let server = MemoryServer::new();
+        let info = server.get_info();
+        assert_eq!(info.server_info.name, "openduck-memory");
+        assert!(info.instructions.is_some());
+    }
+
+    #[test]
     fn test_lazy_directory_creation() {
         let temp_dir = tempdir().unwrap();
         let memory_base = temp_dir.path().join("test_memory");

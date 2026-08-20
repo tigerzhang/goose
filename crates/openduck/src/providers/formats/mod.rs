@@ -24,7 +24,7 @@ pub mod google {
         tools: &[Tool],
     ) -> Result<Value> {
         // TODO: Remove this config fallback wrapper once gemini_oauth and Vertex/GCP Gemini
-        // move into goose-providers and receive provider config during construction.
+        // move into openduck-providers and receive provider config during construction.
         let thinking_budget = Config::global().get_param("GEMINI25_THINKING_BUDGET").ok();
         create_request_with_thinking_budget(model_config, system, messages, tools, thinking_budget)
     }

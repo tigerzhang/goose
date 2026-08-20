@@ -64,7 +64,7 @@ pub struct MessageUsageUpdate {
 }
 
 /// Wire mirror of the conversation `MessageUsage` (this crate cannot depend on
-/// goose-provider-types); field names and serde casing MUST stay in parity.
+/// openduck-provider-types); field names and serde casing MUST stay in parity.
 #[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageUsageData {

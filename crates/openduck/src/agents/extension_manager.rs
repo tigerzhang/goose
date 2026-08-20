@@ -343,18 +343,22 @@ fn remove_untrusted_mcp_app_meta(result: &mut CallToolResult) {
 
     meta.0.remove(TRUSTED_TOOL_UPDATE_META_KEY);
 
-    let remove_goose = meta
-        .0
-        .get_mut("goose")
-        .and_then(Value::as_object_mut)
-        .map(|goose_meta| {
-            goose_meta.remove("mcpApp");
-            goose_meta.is_empty()
-        })
-        .unwrap_or(false);
-
-    if remove_goose {
-        meta.0.remove("goose");
+    for key in [
+        crate::acp::brand_meta::ACP_META_KEY,
+        crate::acp::brand_meta::ACP_META_LEGACY_KEY,
+    ] {
+        let remove_namespace = meta
+            .0
+            .get_mut(key)
+            .and_then(Value::as_object_mut)
+            .map(|brand_meta| {
+                brand_meta.remove("mcpApp");
+                brand_meta.is_empty()
+            })
+            .unwrap_or(false);
+        if remove_namespace {
+            meta.0.remove(key);
+        }
     }
 
     if meta.0.is_empty() {
@@ -683,8 +687,8 @@ pub(crate) fn substitute_env_vars(value: &str, env_map: &HashMap<String, String>
     result
 }
 
-const GOOSE_USER_AGENT: reqwest::header::HeaderValue =
-    reqwest::header::HeaderValue::from_static(concat!("goose/", env!("CARGO_PKG_VERSION")));
+const OPENDUCK_USER_AGENT: reqwest::header::HeaderValue =
+    reqwest::header::HeaderValue::from_static(concat!("openduck/", env!("CARGO_PKG_VERSION")));
 
 #[allow(clippy::too_many_arguments)]
 async fn connect_with_auth(
@@ -700,7 +704,7 @@ async fn connect_with_auth(
     extension_manager: Weak<ExtensionManager>,
 ) -> ExtensionResult<Box<dyn McpClientTrait>> {
     let mut auth_headers = HeaderMap::new();
-    auth_headers.insert(reqwest::header::USER_AGENT, GOOSE_USER_AGENT);
+    auth_headers.insert(reqwest::header::USER_AGENT, OPENDUCK_USER_AGENT);
     for (key, value) in headers {
         auth_headers.insert(
             HeaderName::try_from(key)
@@ -781,7 +785,7 @@ async fn create_streamable_http_client(
 
     let mut default_headers = HeaderMap::new();
 
-    default_headers.insert(reqwest::header::USER_AGENT, GOOSE_USER_AGENT);
+    default_headers.insert(reqwest::header::USER_AGENT, OPENDUCK_USER_AGENT);
 
     for (key, value) in headers {
         default_headers.insert(
@@ -934,11 +938,11 @@ async fn create_unix_socket_http_client(
 
     custom_headers.insert(
         HeaderName::from_static("user-agent"),
-        GOOSE_USER_AGENT
+        OPENDUCK_USER_AGENT
             .to_str()
-            .unwrap_or("goose")
+            .unwrap_or("openduck")
             .parse()
-            .unwrap_or_else(|_| HeaderValue::from_static("goose")),
+            .unwrap_or_else(|_| HeaderValue::from_static("openduck")),
     );
 
     for (key, value) in headers {
@@ -3449,6 +3453,12 @@ mod tests {
                     },
                     "other": true,
                 },
+                "openduck": {
+                    "mcpApp": {
+                        "resourceUri": "ui://spoofed/openduck-app",
+                    },
+                    "other": true,
+                },
                 TRUSTED_TOOL_UPDATE_META_KEY: {
                     "mcpApp": {
                         "resourceUri": "ui://spoofed/internal",
@@ -3462,10 +3472,9 @@ mod tests {
 
         let meta = result.meta.expect("expected remaining meta");
         assert_eq!(meta.0.get(TRUSTED_TOOL_UPDATE_META_KEY), None);
-        assert_eq!(
-            meta.0.get("goose"),
-            Some(&serde_json::json!({ "other": true }))
-        );
+        let remaining = serde_json::json!({ "other": true });
+        assert_eq!(meta.0.get("goose"), Some(&remaining));
+        assert_eq!(meta.0.get("openduck"), Some(&remaining));
     }
 
     #[test]
