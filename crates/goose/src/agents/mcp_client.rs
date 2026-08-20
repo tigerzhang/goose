@@ -447,7 +447,9 @@ impl ClientHandler for GooseClient {
         let system_prompt = params
             .system_prompt
             .as_deref()
-            .unwrap_or("You are a general-purpose AI agent called OpenDuck");
+            .unwrap_or(
+                "You are a general-purpose AI agent called OpenDuck, developed as an open-source software project.",
+            );
 
         let model_config = resolve_sampling_model_config().map_err(|e| {
             ErrorData::new(

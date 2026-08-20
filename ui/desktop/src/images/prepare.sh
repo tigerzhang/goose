@@ -11,17 +11,26 @@ convert -background none -resize 2048x2048 icon.svg icon@2x.png
 # Create Windows icon (ico) with multiple sizes
 convert icon.svg -background none -define icon:auto-resize=256,128,64,48,32,16 icon.ico
 
-# Create macOS icon set (icns)
-mkdir -p icon.iconset
-convert -background none -resize 16x16 icon.svg icon.iconset/icon_16x16.png
-convert -background none -resize 32x32 icon.svg icon.iconset/icon_16x16@2x.png
-convert -background none -resize 32x32 icon.svg icon.iconset/icon_32x32.png
-convert -background none -resize 64x64 icon.svg icon.iconset/icon_32x32@2x.png
-convert -background none -resize 128x128 icon.svg icon.iconset/icon_128x128.png
-convert -background none -resize 256x256 icon.svg icon.iconset/icon_128x128@2x.png
-convert -background none -resize 256x256 icon.svg icon.iconset/icon_256x256.png
-convert -background none -resize 512x512 icon.svg icon.iconset/icon_256x256@2x.png
-convert -background none -resize 512x512 icon.svg icon.iconset/icon_512x512.png
-convert -background none -resize 1024x1024 icon.svg icon.iconset/icon_512x512@2x.png
-iconutil -c icns icon.iconset
-rm -rf icon.iconset
+# Create macOS icon set (icns) from a source SVG.
+# iconutil emits TOC, ARGB ic04/ic05, and PNG ic07–ic14.
+make_icns() {
+    svg="$1"
+    dest="$2"
+    setdir="${dest%.icns}.iconset"
+    mkdir -p "$setdir"
+    convert -background none -resize 16x16 "$svg" "$setdir/icon_16x16.png"
+    convert -background none -resize 32x32 "$svg" "$setdir/icon_16x16@2x.png"
+    convert -background none -resize 32x32 "$svg" "$setdir/icon_32x32.png"
+    convert -background none -resize 64x64 "$svg" "$setdir/icon_32x32@2x.png"
+    convert -background none -resize 128x128 "$svg" "$setdir/icon_128x128.png"
+    convert -background none -resize 256x256 "$svg" "$setdir/icon_128x128@2x.png"
+    convert -background none -resize 256x256 "$svg" "$setdir/icon_256x256.png"
+    convert -background none -resize 512x512 "$svg" "$setdir/icon_256x256@2x.png"
+    convert -background none -resize 512x512 "$svg" "$setdir/icon_512x512.png"
+    convert -background none -resize 1024x1024 "$svg" "$setdir/icon_512x512@2x.png"
+    iconutil -c icns "$setdir" -o "$dest"
+    rm -rf "$setdir"
+}
+
+make_icns icon.svg icon.icns
+make_icns icon-light.svg icon-light.icns
