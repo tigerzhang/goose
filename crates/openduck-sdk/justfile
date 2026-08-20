@@ -99,14 +99,14 @@ crates-publish dry_run="true":
         exit 1; \
     fi; \
     for crate in \
-        goose-provider-types \
-        goose-sdk-types \
-        goose-download-manager \
-        goose-local-inference \
-        goose-providers \
-        goose-agent \
-        goose-context-management \
-        goose-sdk; do \
+        openduck-provider-types \
+        openduck-sdk-types \
+        openduck-download-manager \
+        openduck-local-inference \
+        openduck-providers \
+        openduck-agent \
+        openduck-context-management \
+        openduck-sdk; do \
         cargo publish -p "$crate" $dry_run_flag --allow-dirty; \
     done
 
@@ -127,14 +127,14 @@ bump-version rust_version:
     python_version = f"{major}.{minor}.{patch}" if alpha is None else f"{major}.{minor}.{patch}a{alpha}"
 
     crate_names = [
-        "goose-provider-types",
-        "goose-sdk-types",
-        "goose-download-manager",
-        "goose-local-inference",
-        "goose-providers",
-        "goose-agent",
-        "goose-context-management",
-        "goose-sdk",
+        "openduck-provider-types",
+        "openduck-sdk-types",
+        "openduck-download-manager",
+        "openduck-local-inference",
+        "openduck-providers",
+        "openduck-agent",
+        "openduck-context-management",
+        "openduck-sdk",
     ]
     crate_paths = {name: Path("crates") / name / "Cargo.toml" for name in crate_names}
 
@@ -149,13 +149,13 @@ bump-version rust_version:
         replace_unique(path, r'^version\s*=\s*"[^"]+"', f'version = "{rust_version}"')
 
     dependency_names = [
-        "goose-provider-types",
-        "goose-sdk-types",
-        "goose-download-manager",
-        "goose-local-inference",
-        "goose-providers",
-        "goose-agent",
-        "goose-context-management",
+        "openduck-provider-types",
+        "openduck-sdk-types",
+        "openduck-download-manager",
+        "openduck-local-inference",
+        "openduck-providers",
+        "openduck-agent",
+        "openduck-context-management",
     ]
     for path in crate_paths.values():
         text = path.read_text()

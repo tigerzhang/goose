@@ -50,9 +50,9 @@ jobs:
         shell: bash
         run: |
           case "${{ runner.os }}" in
-            Linux) lib="target/release/libgoose_sdk.so" ;;
-            macOS) lib="target/release/libgoose_sdk.dylib" ;;
-            Windows) lib="target/release/goose_sdk.dll" ;;
+            Linux) lib="target/release/libopenduck_sdk.so" ;;
+            macOS) lib="target/release/libopenduck_sdk.dylib" ;;
+            Windows) lib="target/release/openduck_sdk.dll" ;;
             *) echo "unsupported runner OS: ${{ runner.os }}" >&2; exit 1 ;;
           esac
           mkdir -p "maven-native/${{ matrix.resource-prefix }}"
@@ -97,7 +97,7 @@ jobs:
         run: |
           cargo build -p openduck-sdk --features uniffi --release
           crates/openduck-sdk/scripts/prepare-maven-package.sh \
-            target/release/libgoose_sdk.so \
+            target/release/libopenduck_sdk.so \
             linux-x86-64
 
       - name: Restore downloaded native libraries
@@ -156,7 +156,7 @@ jobs:
         run: |
           cargo build -p openduck-sdk --features uniffi --release
           crates/openduck-sdk/scripts/prepare-maven-package.sh \
-            target/release/libgoose_sdk.so \
+            target/release/libopenduck_sdk.so \
             linux-x86-64
 
       - name: Restore downloaded native libraries

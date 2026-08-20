@@ -22,9 +22,9 @@ internal object NativeLibraryLoader {
     private fun nativeResourcePath(): String = "${jnaResourcePrefix()}/${nativeLibraryFileName()}"
 
     private fun nativeLibraryFileName(): String = when (osName()) {
-        "darwin" -> "libgoose_sdk.dylib"
-        "linux" -> "libgoose_sdk.so"
-        "win32" -> "goose_sdk.dll"
+        "darwin" -> "libopenduck_sdk.dylib"
+        "linux" -> "libopenduck_sdk.so"
+        "win32" -> "openduck_sdk.dll"
         else -> error("Unsupported OS: ${System.getProperty("os.name")}")
     }
 
