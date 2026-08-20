@@ -6,6 +6,8 @@ import { execFileSync } from 'node:child_process';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DesktopFileAccess,
+  GOOSE_HINTS_FILENAME,
+  OPENDUCK_HINTS_FILENAME,
   isAppRendererUrl,
   isAuthorizedFileAccessRequest,
   readSelectedRecipe,
@@ -27,16 +29,47 @@ afterEach(() => {
 });
 
 describe('DesktopFileAccess', () => {
-  it('reads .goosehints from the bound working directory', async () => {
+  it('reads .openduckhints from the bound working directory', async () => {
     const workingDirectory = makeTempDirectory();
-    fs.writeFileSync(path.join(workingDirectory, '.goosehints'), 'project guidance');
+    fs.writeFileSync(path.join(workingDirectory, OPENDUCK_HINTS_FILENAME), 'project guidance');
     const access = new DesktopFileAccess();
     await access.bindWindow(7, workingDirectory);
     const canonicalWorkingDirectory = fs.realpathSync(workingDirectory);
 
     await expect(access.readGoosehints(7)).resolves.toEqual({
       file: 'project guidance',
-      filePath: path.join(canonicalWorkingDirectory, '.goosehints'),
+      filePath: path.join(canonicalWorkingDirectory, OPENDUCK_HINTS_FILENAME),
+      error: null,
+      found: true,
+    });
+  });
+
+  it('falls back to .goosehints when .openduckhints is absent', async () => {
+    const workingDirectory = makeTempDirectory();
+    fs.writeFileSync(path.join(workingDirectory, GOOSE_HINTS_FILENAME), 'legacy guidance');
+    const access = new DesktopFileAccess();
+    await access.bindWindow(7, workingDirectory);
+    const canonicalWorkingDirectory = fs.realpathSync(workingDirectory);
+
+    await expect(access.readGoosehints(7)).resolves.toEqual({
+      file: 'legacy guidance',
+      filePath: path.join(canonicalWorkingDirectory, GOOSE_HINTS_FILENAME),
+      error: null,
+      found: true,
+    });
+  });
+
+  it('prefers .openduckhints when both hint files exist', async () => {
+    const workingDirectory = makeTempDirectory();
+    fs.writeFileSync(path.join(workingDirectory, GOOSE_HINTS_FILENAME), 'legacy guidance');
+    fs.writeFileSync(path.join(workingDirectory, OPENDUCK_HINTS_FILENAME), 'preferred guidance');
+    const access = new DesktopFileAccess();
+    await access.bindWindow(7, workingDirectory);
+    const canonicalWorkingDirectory = fs.realpathSync(workingDirectory);
+
+    await expect(access.readGoosehints(7)).resolves.toEqual({
+      file: 'preferred guidance',
+      filePath: path.join(canonicalWorkingDirectory, OPENDUCK_HINTS_FILENAME),
       error: null,
       found: true,
     });
@@ -50,23 +83,36 @@ describe('DesktopFileAccess', () => {
 
     await expect(access.readGoosehints(7)).resolves.toEqual({
       file: '',
-      filePath: path.join(canonicalWorkingDirectory, '.goosehints'),
+      filePath: path.join(canonicalWorkingDirectory, OPENDUCK_HINTS_FILENAME),
       error: null,
       found: false,
     });
   });
 
-  it('creates and updates .goosehints in the bound working directory', async () => {
+  it('creates and updates .openduckhints in the bound working directory', async () => {
     const workingDirectory = makeTempDirectory();
     const access = new DesktopFileAccess();
     await access.bindWindow(7, workingDirectory);
-    const filePath = path.join(fs.realpathSync(workingDirectory), '.goosehints');
+    const filePath = path.join(fs.realpathSync(workingDirectory), OPENDUCK_HINTS_FILENAME);
 
     await expect(access.writeGoosehints(7, 'first guidance')).resolves.toBe(true);
     expect(fs.readFileSync(filePath, 'utf8')).toBe('first guidance');
+    expect(fs.existsSync(path.join(workingDirectory, GOOSE_HINTS_FILENAME))).toBe(false);
 
     await expect(access.writeGoosehints(7, 'updated guidance')).resolves.toBe(true);
     expect(fs.readFileSync(filePath, 'utf8')).toBe('updated guidance');
+  });
+
+  it('updates an existing .goosehints file when .openduckhints is absent', async () => {
+    const workingDirectory = makeTempDirectory();
+    fs.writeFileSync(path.join(workingDirectory, GOOSE_HINTS_FILENAME), 'legacy guidance');
+    const access = new DesktopFileAccess();
+    await access.bindWindow(7, workingDirectory);
+    const legacyPath = path.join(fs.realpathSync(workingDirectory), GOOSE_HINTS_FILENAME);
+
+    await expect(access.writeGoosehints(7, 'updated legacy')).resolves.toBe(true);
+    expect(fs.readFileSync(legacyPath, 'utf8')).toBe('updated legacy');
+    expect(fs.existsSync(path.join(workingDirectory, OPENDUCK_HINTS_FILENAME))).toBe(false);
   });
 
   it.skipIf(process.platform === 'win32')(
@@ -203,7 +249,7 @@ describe('DesktopFileAccess', () => {
     }
   );
 
-  it('rechecks the working directory before creating a missing .goosehints', async () => {
+  it('rechecks the working directory before creating a missing .openduckhints', async () => {
     const root = makeTempDirectory();
     const workingDirectory = path.join(root, 'project');
     const renamedDirectory = path.join(root, 'renamed-project');
@@ -215,7 +261,7 @@ describe('DesktopFileAccess', () => {
       try {
         return await lstat(...args);
       } catch (error) {
-        if (path.basename(args[0].toString()) === '.goosehints') {
+        if (path.basename(args[0].toString()) === OPENDUCK_HINTS_FILENAME) {
           fs.renameSync(workingDirectory, renamedDirectory);
           fs.mkdirSync(workingDirectory);
         }
@@ -226,7 +272,7 @@ describe('DesktopFileAccess', () => {
 
     await expect(access.writeGoosehints(7, 'new guidance')).resolves.toBe(false);
     expect(open).not.toHaveBeenCalled();
-    expect(fs.existsSync(path.join(workingDirectory, '.goosehints'))).toBe(false);
+    expect(fs.existsSync(path.join(workingDirectory, OPENDUCK_HINTS_FILENAME))).toBe(false);
   });
 
   it('rejects a renderer without a bound working directory', async () => {
@@ -254,7 +300,10 @@ describe('DesktopFileAccess', () => {
       expect(result.found).toBe(false);
       expect(result.file).toBe('');
       expect(result.error).toContain('symbolic link');
-      expect(saved).toBe(false);
+      expect(saved).toBe(true);
+      expect(
+        fs.readFileSync(path.join(workingDirectory, OPENDUCK_HINTS_FILENAME), 'utf8')
+      ).toBe('replacement');
       expect(fs.readFileSync(secretPath, 'utf8')).toBe('host secret');
     }
   );
@@ -314,14 +363,16 @@ describe('DesktopFileAccess', () => {
   );
 
   it.skipIf(process.platform === 'win32')(
-    'rejects a non-regular .goosehints target without blocking',
+    'creates .openduckhints when a non-regular .goosehints target is present',
     async () => {
       const workingDirectory = makeTempDirectory();
-      execFileSync('mkfifo', [path.join(workingDirectory, '.goosehints')]);
+      execFileSync('mkfifo', [path.join(workingDirectory, GOOSE_HINTS_FILENAME)]);
       const access = new DesktopFileAccess();
       await access.bindWindow(7, workingDirectory);
+      const preferredPath = path.join(fs.realpathSync(workingDirectory), OPENDUCK_HINTS_FILENAME);
 
-      await expect(access.writeGoosehints(7, 'project guidance')).resolves.toBe(false);
+      await expect(access.writeGoosehints(7, 'project guidance')).resolves.toBe(true);
+      expect(fs.readFileSync(preferredPath, 'utf8')).toBe('project guidance');
     }
   );
 });

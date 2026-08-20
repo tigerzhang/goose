@@ -1212,7 +1212,7 @@
     "defaultMessage": "Secret Key"
   },
   "externalBackendSection.secretKeyHelp": {
-    "defaultMessage": "La clave secreta configurada en el servidor OpenDuck (GOOSE_SERVER__SECRET_KEY)"
+    "defaultMessage": "La clave secreta configurada en el servidor OpenDuck (OPENDUCK_SERVER__SECRET_KEY or GOOSE_SERVER__SECRET_KEY)"
   },
   "externalBackendSection.secretKeyPlaceholder": {
     "defaultMessage": "Introduce la secret key del servidor"
@@ -4494,7 +4494,7 @@
     "defaultMessage": "La actualización se descargará automáticamente en segundo plano."
   },
   "updateSection.autoDownloadDisabledByEnv": {
-    "defaultMessage": "Las descargas automáticas están desactivadas mediante la variable de entorno GOOSE_DISABLE_AUTO_DOWNLOAD."
+    "defaultMessage": "Las descargas automáticas están desactivadas mediante la variable de entorno OPENDUCK_DISABLE_AUTO_DOWNLOAD or GOOSE_DISABLE_AUTO_DOWNLOAD."
   },
   "updateSection.autoDownloadDisabledNote": {
     "defaultMessage": "La descarga automática está desactivada. Haz clic en «Descargar ahora» para descargar manualmente."

@@ -1212,7 +1212,7 @@
     "defaultMessage": "密钥"
   },
   "externalBackendSection.secretKeyHelp": {
-    "defaultMessage": "在 OpenDuck 服务器上配置的密钥（GOOSE_SERVER__SECRET_KEY）"
+    "defaultMessage": "在 OpenDuck 服务器上配置的密钥（OPENDUCK_SERVER__SECRET_KEY or GOOSE_SERVER__SECRET_KEY）"
   },
   "externalBackendSection.secretKeyPlaceholder": {
     "defaultMessage": "输入服务器的密钥"
@@ -4494,7 +4494,7 @@
     "defaultMessage": "更新将在后台自动下载。"
   },
   "updateSection.autoDownloadDisabledByEnv": {
-    "defaultMessage": "自动下载已通过 GOOSE_DISABLE_AUTO_DOWNLOAD 环境变量禁用。"
+    "defaultMessage": "自动下载已通过 OPENDUCK_DISABLE_AUTO_DOWNLOAD or GOOSE_DISABLE_AUTO_DOWNLOAD 环境变量禁用。"
   },
   "updateSection.autoDownloadDisabledNote": {
     "defaultMessage": "自动下载已禁用。点击\"立即下载\"以手动下载。"

@@ -1212,7 +1212,7 @@
     "defaultMessage": "비밀 키"
   },
   "externalBackendSection.secretKeyHelp": {
-    "defaultMessage": "외부 백엔드에 설정된 비밀 키 (GOOSE_SERVER__SECRET_KEY)."
+    "defaultMessage": "외부 백엔드에 설정된 비밀 키 (OPENDUCK_SERVER__SECRET_KEY or GOOSE_SERVER__SECRET_KEY)."
   },
   "externalBackendSection.secretKeyPlaceholder": {
     "defaultMessage": "서버의 비밀 키를 입력하세요"
@@ -4494,7 +4494,7 @@
     "defaultMessage": "OpenDuck가 백그라운드에서 업데이트를 다운로드하며, 종료하거나 다시 시작할 때 설치합니다."
   },
   "updateSection.autoDownloadDisabledByEnv": {
-    "defaultMessage": "자동 다운로드는 GOOSE_DISABLE_AUTO_DOWNLOAD 환경 변수를 통해 비활성화되어 있습니다."
+    "defaultMessage": "자동 다운로드는 OPENDUCK_DISABLE_AUTO_DOWNLOAD or GOOSE_DISABLE_AUTO_DOWNLOAD 환경 변수를 통해 비활성화되어 있습니다."
   },
   "updateSection.autoDownloadDisabledNote": {
     "defaultMessage": "자동 다운로드가 비활성화되어 있습니다. 수동으로 다운로드하려면 \"지금 다운로드\"를 클릭하세요."

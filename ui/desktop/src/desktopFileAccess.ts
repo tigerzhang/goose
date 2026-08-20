@@ -60,6 +60,10 @@ function failedRead(filePath: string, message: string): FileReadResult {
   return { file: '', filePath, error: message, found: false };
 }
 
+export const OPENDUCK_HINTS_FILENAME = '.openduckhints';
+export const GOOSE_HINTS_FILENAME = '.goosehints';
+const HINTS_FILENAMES = [OPENDUCK_HINTS_FILENAME, GOOSE_HINTS_FILENAME] as const;
+
 type WorkingDirectoryBinding =
   | { status: 'ready'; path: string; dev: bigint; ino: bigint }
   | { status: 'missing'; path: string }
@@ -71,7 +75,7 @@ export class DesktopFileAccess {
   private bindingForWindow(windowId: number): WorkingDirectoryBinding {
     const binding = this.workingDirectories.get(windowId);
     if (!binding) {
-      throw new Error('This window is not authorized to access .goosehints');
+      throw new Error('This window is not authorized to access project hints');
     }
     return binding;
   }
@@ -121,29 +125,43 @@ export class DesktopFileAccess {
 
   async readGoosehints(windowId: number): Promise<FileReadResult> {
     const binding = this.bindingForWindow(windowId);
-    const filePath = path.join(binding.path, '.goosehints');
+    const preferredPath = path.join(binding.path, OPENDUCK_HINTS_FILENAME);
     if (binding.status === 'missing') {
-      return missingFile(filePath);
+      return missingFile(preferredPath);
     }
     if (binding.status === 'error') {
-      return failedRead(filePath, 'Unable to resolve the working directory');
+      return failedRead(preferredPath, 'Unable to resolve the working directory');
     }
     if (!(await this.bindingMatchesDirectory(binding))) {
-      return failedRead(filePath, 'The working directory changed after it was authorized');
+      return failedRead(preferredPath, 'The working directory changed after it was authorized');
     }
 
+    for (const filename of HINTS_FILENAMES) {
+      const result = await this.readHintFile(binding, filename);
+      if (result.found || result.error) {
+        return result;
+      }
+    }
+    return missingFile(preferredPath);
+  }
+
+  private async readHintFile(
+    binding: Extract<WorkingDirectoryBinding, { status: 'ready' }>,
+    filename: string
+  ): Promise<FileReadResult> {
+    const filePath = path.join(binding.path, filename);
     try {
       const metadata = await fs.lstat(filePath);
       if (metadata.isSymbolicLink()) {
-        return failedRead(filePath, 'Refusing to read a symbolic link as .goosehints');
+        return failedRead(filePath, `Refusing to read a symbolic link as ${filename}`);
       }
       if (!metadata.isFile()) {
-        return failedRead(filePath, '.goosehints is not a regular file');
+        return failedRead(filePath, `${filename} is not a regular file`);
       }
 
       const canonicalFilePath = await fs.realpath(filePath);
       if (path.dirname(canonicalFilePath) !== binding.path) {
-        return failedRead(filePath, '.goosehints resolves outside the working directory');
+        return failedRead(filePath, `${filename} resolves outside the working directory`);
       }
 
       const noFollow = process.platform === 'win32' ? 0 : fsConstants.O_NOFOLLOW;
@@ -151,10 +169,10 @@ export class DesktopFileAccess {
       try {
         const openedMetadata = await handle.stat();
         if (!openedMetadata.isFile()) {
-          return failedRead(filePath, '.goosehints is not a regular file');
+          return failedRead(filePath, `${filename} is not a regular file`);
         }
         if (openedMetadata.dev !== metadata.dev || openedMetadata.ino !== metadata.ino) {
-          return failedRead(filePath, '.goosehints changed while it was being opened');
+          return failedRead(filePath, `${filename} changed while it was being opened`);
         }
         if (!(await this.bindingMatchesDirectory(binding))) {
           return failedRead(filePath, 'The working directory changed after it was authorized');
@@ -172,7 +190,7 @@ export class DesktopFileAccess {
       if (isMissingFile(error)) {
         return missingFile(filePath);
       }
-      return failedRead(filePath, 'Unable to read .goosehints');
+      return failedRead(filePath, `Unable to read ${filename}`);
     }
   }
 
@@ -185,39 +203,77 @@ export class DesktopFileAccess {
       return false;
     }
 
-    const filePath = path.join(binding.path, '.goosehints');
+    try {
+      const preferredPath = path.join(binding.path, OPENDUCK_HINTS_FILENAME);
+      const legacyPath = path.join(binding.path, GOOSE_HINTS_FILENAME);
+      const preferredMetadata = await this.lstatIfPresent(preferredPath);
+      if (preferredMetadata) {
+        return this.writeExistingHintFile(binding, preferredPath, preferredMetadata, content);
+      }
+
+      const legacyMetadata = await this.lstatIfPresent(legacyPath);
+      if (legacyMetadata?.isFile() && !legacyMetadata.isSymbolicLink()) {
+        return this.writeExistingHintFile(binding, legacyPath, legacyMetadata, content);
+      }
+
+      return this.createHintFile(binding, preferredPath, content);
+    } catch {
+      return false;
+    }
+  }
+
+  private async lstatIfPresent(filePath: string): Promise<Stats | null> {
+    try {
+      return await fs.lstat(filePath);
+    } catch (error) {
+      if (isMissingFile(error)) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  private async createHintFile(
+    binding: Extract<WorkingDirectoryBinding, { status: 'ready' }>,
+    filePath: string,
+    content: string
+  ): Promise<boolean> {
     const noFollow = process.platform === 'win32' ? 0 : fsConstants.O_NOFOLLOW;
     try {
-      let metadata: Stats;
+      if (!(await this.bindingMatchesDirectory(binding))) {
+        return false;
+      }
+
+      const handle = await fs.open(
+        filePath,
+        fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_EXCL | noFollow,
+        0o666
+      );
       try {
-        metadata = await fs.lstat(filePath);
-      } catch (error) {
-        if (!isMissingFile(error)) {
+        if (!(await handle.stat()).isFile()) {
           return false;
         }
         if (!(await this.bindingMatchesDirectory(binding))) {
           return false;
         }
-
-        const handle = await fs.open(
-          filePath,
-          fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_EXCL | noFollow,
-          0o666
-        );
-        try {
-          if (!(await handle.stat()).isFile()) {
-            return false;
-          }
-          if (!(await this.bindingMatchesDirectory(binding))) {
-            return false;
-          }
-          await handle.writeFile(content, 'utf8');
-          return true;
-        } finally {
-          await handle.close();
-        }
+        await handle.writeFile(content, 'utf8');
+        return true;
+      } finally {
+        await handle.close();
       }
+    } catch {
+      return false;
+    }
+  }
 
+  private async writeExistingHintFile(
+    binding: Extract<WorkingDirectoryBinding, { status: 'ready' }>,
+    filePath: string,
+    metadata: Stats,
+    content: string
+  ): Promise<boolean> {
+    const noFollow = process.platform === 'win32' ? 0 : fsConstants.O_NOFOLLOW;
+    try {
       if (metadata.isSymbolicLink() || !metadata.isFile()) {
         return false;
       }

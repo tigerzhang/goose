@@ -169,16 +169,26 @@ describe('createSession ACP session extensions', () => {
     expect(finishConfiguredRecipeParameterScope).toHaveBeenCalledOnce();
   });
 
-  it('reports incompatible Goose servers before sending scoped parameters', async () => {
+  it('scopes startup parameters for openduck:// recipe deeplinks', async () => {
+    await createSession('/tmp', { recipeDeeplink: 'openduck://recipe?url=example' });
+
+    expect(mockedCreateAcpSession).toHaveBeenCalledWith('/tmp', [], {
+      recipeDeeplink: 'openduck://recipe?url=example',
+      recipeId: undefined,
+      recipeParameterScopeId: 'scope-1',
+    });
+  });
+
+  it('reports incompatible OpenDuck servers before sending scoped parameters', async () => {
     mockedGetAcpFeatureCapabilities.mockResolvedValueOnce({
       localInference: false,
       recipeParameterScopes: false,
     });
 
     await expect(
-      createSession('/tmp', { recipeDeeplink: 'goose://recipe?url=example' })
+      createSession('/tmp', { recipeDeeplink: 'openduck://recipe?url=example' })
     ).rejects.toThrow(
-      'The connected Goose server does not support securely scoped deeplink recipe parameters. Update the server and try again.'
+      'The connected OpenDuck server does not support securely scoped deeplink recipe parameters. Update the server and try again.'
     );
 
     expect(mockedCreateAcpSession).not.toHaveBeenCalled();

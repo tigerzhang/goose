@@ -1212,7 +1212,7 @@
     "defaultMessage": "Chave secreta"
   },
   "externalBackendSection.secretKeyHelp": {
-    "defaultMessage": "A chave secreta configurada no servidor OpenDuck (GOOSE_SERVER__SECRET_KEY)"
+    "defaultMessage": "A chave secreta configurada no servidor OpenDuck (OPENDUCK_SERVER__SECRET_KEY or GOOSE_SERVER__SECRET_KEY)"
   },
   "externalBackendSection.secretKeyPlaceholder": {
     "defaultMessage": "Insira a chave secreta do servidor"
@@ -4494,7 +4494,7 @@
     "defaultMessage": "O OpenDuck transferirá a atualização em segundo plano e instalá-la-á da próxima vez que sair ou reiniciar."
   },
   "updateSection.autoDownloadDisabledByEnv": {
-    "defaultMessage": "As transferências automáticas estão desativadas através da variável de ambiente GOOSE_DISABLE_AUTO_DOWNLOAD."
+    "defaultMessage": "As transferências automáticas estão desativadas através da variável de ambiente OPENDUCK_DISABLE_AUTO_DOWNLOAD or GOOSE_DISABLE_AUTO_DOWNLOAD."
   },
   "updateSection.autoDownloadDisabledNote": {
     "defaultMessage": "A transferência automática está desativada. Clique em \"Transferir Agora\" para transferir manualmente."

@@ -1221,7 +1221,7 @@
     "defaultMessage": "Secret Key"
   },
   "externalBackendSection.secretKeyHelp": {
-    "defaultMessage": "The secret key configured on the external backend (GOOSE_SERVER__SECRET_KEY)."
+    "defaultMessage": "The secret key configured on the external backend (OPENDUCK_SERVER__SECRET_KEY or GOOSE_SERVER__SECRET_KEY)."
   },
   "externalBackendSection.secretKeyPlaceholder": {
     "defaultMessage": "Enter the server's secret key"
@@ -1284,19 +1284,19 @@
     "defaultMessage": "Configure Project Hints (.openduckhints)"
   },
   "goosehintsModal.errorReading": {
-    "defaultMessage": "Error reading .goosehints file: {error}"
+    "defaultMessage": "Error reading hints file: {error}"
   },
   "goosehintsModal.failedToAccess": {
-    "defaultMessage": "Failed to access .goosehints file"
+    "defaultMessage": "Failed to access project hints file"
   },
   "goosehintsModal.failedToSave": {
-    "defaultMessage": "Failed to save .goosehints file"
+    "defaultMessage": "Failed to save project hints file"
   },
   "goosehintsModal.fileCreating": {
-    "defaultMessage": "Creating new .goosehints file at: {filePath}"
+    "defaultMessage": "Creating new hints file at: {filePath}"
   },
   "goosehintsModal.fileFound": {
-    "defaultMessage": ".goosehints file found at: {filePath}"
+    "defaultMessage": "Hints file found at: {filePath}"
   },
   "goosehintsModal.helpText1": {
     "defaultMessage": ".openduckhints is a text file used to provide additional context about your project and improve the communication with OpenDuck. Legacy .goosehints files are still read."
@@ -4524,7 +4524,7 @@
     "defaultMessage": "OpenDuck will download the update in the background and install it the next time you quit or restart."
   },
   "updateSection.autoDownloadDisabledByEnv": {
-    "defaultMessage": "Automatic downloads are disabled via the GOOSE_DISABLE_AUTO_DOWNLOAD environment variable."
+    "defaultMessage": "Automatic downloads are disabled via the OPENDUCK_DISABLE_AUTO_DOWNLOAD (or GOOSE_DISABLE_AUTO_DOWNLOAD) environment variable."
   },
   "updateSection.autoDownloadDisabledNote": {
     "defaultMessage": "Automatic download is disabled. Click \"Download Now\" to download manually."

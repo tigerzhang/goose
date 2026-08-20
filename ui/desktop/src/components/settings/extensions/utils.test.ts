@@ -559,6 +559,11 @@ describe('Extension Utils', () => {
       expect(extractCommand(link)).toBe('python script.py --flag');
     });
 
+    it('should extract command from openduck:// extension links', () => {
+      const link = 'openduck://extension/add?name=Test&cmd=openduck&arg=mcp';
+      expect(extractCommand(link)).toBe('openduck mcp');
+    });
+
     it('should handle encoded arguments', () => {
       const link = 'goose://extension/add?cmd=echo&arg=hello%20world&arg=--test%3Dvalue';
       expect(extractCommand(link)).toBe('echo hello world --test=value');

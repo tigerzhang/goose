@@ -42,15 +42,15 @@ const i18n = defineMessages({
   },
   errorReading: {
     id: 'goosehintsModal.errorReading',
-    defaultMessage: 'Error reading .goosehints file: {error}',
+    defaultMessage: 'Error reading hints file: {error}',
   },
   fileFound: {
     id: 'goosehintsModal.fileFound',
-    defaultMessage: '.goosehints file found at: {filePath}',
+    defaultMessage: 'Hints file found at: {filePath}',
   },
   fileCreating: {
     id: 'goosehintsModal.fileCreating',
-    defaultMessage: 'Creating new .goosehints file at: {filePath}',
+    defaultMessage: 'Creating new hints file at: {filePath}',
   },
   placeholder: {
     id: 'goosehintsModal.placeholder',
@@ -74,11 +74,11 @@ const i18n = defineMessages({
   },
   failedToAccess: {
     id: 'goosehintsModal.failedToAccess',
-    defaultMessage: 'Failed to access .goosehints file',
+    defaultMessage: 'Failed to access project hints file',
   },
   failedToSave: {
     id: 'goosehintsModal.failedToSave',
-    defaultMessage: 'Failed to save .goosehints file',
+    defaultMessage: 'Failed to save project hints file',
   },
   developer: {
     id: 'goosehintsModal.developer',
@@ -155,7 +155,7 @@ interface GoosehintsModalProps {
 
 export const GoosehintsModal = ({ directory, setIsGoosehintsModalOpen }: GoosehintsModalProps) => {
   const intl = useIntl();
-  const goosehintsFilePath = `${directory}/.goosehints`;
+  const [hintsFilePath, setHintsFilePath] = useState(`${directory}/.openduckhints`);
   const [goosehintsFile, setGoosehintsFile] = useState<string>('');
   const [goosehintsFileFound, setGoosehintsFileFound] = useState<boolean>(false);
   const [goosehintsFileReadError, setGoosehintsFileReadError] = useState<string>('');
@@ -165,12 +165,13 @@ export const GoosehintsModal = ({ directory, setIsGoosehintsModalOpen }: Goosehi
   useEffect(() => {
     const fetchGoosehintsFile = async () => {
       try {
-        const { file, error, found } = await window.electron.readGoosehints();
+        const { file, error, found, filePath } = await window.electron.readGoosehints();
         setGoosehintsFile(file);
         setGoosehintsFileFound(found);
         setGoosehintsFileReadError(error ?? '');
+        setHintsFilePath(filePath || `${directory}/.openduckhints`);
       } catch (error) {
-        console.error('Error fetching .goosehints file:', error);
+        console.error('Error fetching project hints file:', error);
         setGoosehintsFileReadError(intl.formatMessage(i18n.failedToAccess));
       }
     };
@@ -183,13 +184,13 @@ export const GoosehintsModal = ({ directory, setIsGoosehintsModalOpen }: Goosehi
     try {
       const saved = await window.electron.writeGoosehints(goosehintsFile);
       if (!saved) {
-        throw new Error('Unable to save .goosehints');
+        throw new Error('Unable to save project hints');
       }
       setSaveSuccess(true);
       setGoosehintsFileFound(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
-      console.error('Error writing .goosehints file:', error);
+      console.error('Error writing project hints file:', error);
       setGoosehintsFileReadError(intl.formatMessage(i18n.failedToSave));
     } finally {
       setIsSaving(false);
@@ -212,7 +213,7 @@ export const GoosehintsModal = ({ directory, setIsGoosehintsModalOpen }: Goosehi
               <ErrorDisplay error={new Error(goosehintsFileReadError)} />
             ) : (
               <div className="space-y-2">
-                <FileInfo filePath={goosehintsFilePath} found={goosehintsFileFound} />
+                <FileInfo filePath={hintsFilePath} found={goosehintsFileFound} />
                 <textarea
                   value={goosehintsFile}
                   className="w-full h-80 border rounded-md p-2 text-sm resize-none bg-background-primary text-text-primary border-border-primary focus:outline-none focus:ring-2 focus:ring-blue-500"

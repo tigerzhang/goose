@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generates TypeScript types + Zod validators for Goose custom extension methods.
+ * Generates TypeScript types + Zod validators for OpenDuck custom extension methods.
  *
  * Usage:
  *   npm run generate              # build Rust schema, then generate TS
@@ -15,8 +15,8 @@ import * as prettier from "prettier";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT = resolve(__dirname, "../..");
-const SCHEMA_PATH = resolve(ROOT, "crates/goose/acp-schema.json");
-const META_PATH = resolve(ROOT, "crates/goose/acp-meta.json");
+const SCHEMA_PATH = resolve(ROOT, "crates/openduck/acp-schema.json");
+const META_PATH = resolve(ROOT, "crates/openduck/acp-meta.json");
 const OUTPUT_DIR = resolve(__dirname, "src/generated");
 
 // Export the main function so it can be imported by build-schema.ts
@@ -33,7 +33,7 @@ export default async function main() {
     input: {
       openapi: "3.1.0",
       info: {
-        title: "Goose Extensions",
+        title: "OpenDuck Extensions",
         version: "1.0.0",
       },
       components: {

@@ -1212,7 +1212,7 @@
     "defaultMessage": "シークレットキー"
   },
   "externalBackendSection.secretKeyHelp": {
-    "defaultMessage": "OpenDuck サーバーに設定されたシークレットキー（GOOSE_SERVER__SECRET_KEY）"
+    "defaultMessage": "OpenDuck サーバーに設定されたシークレットキー（OPENDUCK_SERVER__SECRET_KEY or GOOSE_SERVER__SECRET_KEY）"
   },
   "externalBackendSection.secretKeyPlaceholder": {
     "defaultMessage": "サーバーのシークレットキーを入力"
@@ -4494,7 +4494,7 @@
     "defaultMessage": "アップデートはバックグラウンドで自動的にダウンロードされます。"
   },
   "updateSection.autoDownloadDisabledByEnv": {
-    "defaultMessage": "自動ダウンロードは GOOSE_DISABLE_AUTO_DOWNLOAD 環境変数によって無効になっています。"
+    "defaultMessage": "自動ダウンロードは OPENDUCK_DISABLE_AUTO_DOWNLOAD or GOOSE_DISABLE_AUTO_DOWNLOAD 環境変数によって無効になっています。"
   },
   "updateSection.autoDownloadDisabledNote": {
     "defaultMessage": "自動ダウンロードは無効です。手動でダウンロードするには「今すぐダウンロード」をクリックしてください。"

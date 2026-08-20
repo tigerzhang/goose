@@ -51,7 +51,7 @@ export class GitHubUpdater {
       const response = await fetch(this.apiUrl, {
         headers: {
           Accept: 'application/vnd.github.v3+json',
-          'User-Agent': `Goose-Desktop/${app.getVersion()}`,
+          'User-Agent': `OpenDuck-Desktop/${app.getVersion()}`,
         },
         signal: controller.signal,
       });

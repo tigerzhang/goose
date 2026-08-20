@@ -18,6 +18,23 @@ describe('addExtensionFromDeepLink', () => {
   });
 
   describe('header parsing', () => {
+    it('should accept openduck:// extension header deeplinks', async () => {
+      const url =
+        'openduck://extension?name=Remote&url=https%3A%2F%2Fexample.com%2Fmcp&header=Authorization%3DBasic%20abc%3D%3D';
+
+      await addExtensionFromDeepLink(url, mockAddExtension, mockSetView);
+
+      expect(mockSetView).toHaveBeenCalledWith(
+        'extensions',
+        expect.objectContaining({
+          showEnvVars: true,
+          deepLinkConfig: expect.objectContaining({
+            headers: { Authorization: 'Basic abc==' },
+          }),
+        })
+      );
+    });
+
     it('should preserve = characters in header values', async () => {
       const url =
         'goose://extension?name=Remote&url=https%3A%2F%2Fexample.com%2Fmcp&header=Authorization%3DBasic%20abc%3D%3D';
@@ -88,6 +105,23 @@ describe('addExtensionFromDeepLink', () => {
   });
 
   describe('stdio command validation', () => {
+    it('should allow openduck:// extension deeplinks and the openduck command', async () => {
+      const url =
+        'openduck://extension?cmd=openduck&arg=mcp&arg=memory&name=Memory&description=Memory';
+
+      await addExtensionFromDeepLink(url, mockAddExtension, mockSetView);
+
+      expect(mockAddExtension).toHaveBeenCalledWith(
+        'Memory',
+        expect.objectContaining({
+          type: 'stdio',
+          cmd: 'openduck',
+          args: ['mcp', 'memory'],
+        }),
+        true
+      );
+    });
+
     it('should allow goose for bundled MCP deeplinks', async () => {
       const url =
         'goose://extension?cmd=goose&arg=mcp&arg=memory&name=Memory&description=Memory';
@@ -103,6 +137,27 @@ describe('addExtensionFromDeepLink', () => {
         }),
         true
       );
+    });
+
+    it('should reject unsupported protocols', async () => {
+      vi.mocked(toastService.handleError).mockImplementationOnce(() => {
+        throw new Error('Invalid protocol');
+      });
+
+      await expect(
+        addExtensionFromDeepLink(
+          'https://example.com/extension?cmd=npx&name=Test',
+          mockAddExtension,
+          mockSetView
+        )
+      ).rejects.toThrow('Invalid protocol');
+
+      expect(toastService.handleError).toHaveBeenCalledWith(
+        'Invalid Protocol',
+        expect.stringContaining('openduck:// or goose://'),
+        { shouldThrow: true }
+      );
+      expect(mockAddExtension).not.toHaveBeenCalled();
     });
 
     it('should reject legacy goosed deeplinks', async () => {
