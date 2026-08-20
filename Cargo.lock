@@ -4922,428 +4922,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "goose"
-version = "1.47.0"
-dependencies = [
- "agent-client-protocol",
- "agent-client-protocol-http",
- "agent-client-protocol-schema",
- "anyhow",
- "arboard",
- "async-stream",
- "async-trait",
- "aws-config",
- "aws-lc-rs",
- "aws-sdk-bedrockruntime",
- "aws-sdk-sagemakerruntime",
- "aws-smithy-types",
- "axum",
- "axum-server",
- "base64 0.23.1",
- "blake3",
- "byteorder",
- "bytes",
- "candle-core",
- "candle-nn",
- "candle-transformers",
- "chrono",
- "clap",
- "ctor",
- "dirs",
- "dotenvy",
- "dtor",
- "env-lock",
- "etcetera",
- "fs-err",
- "fs2",
- "futures",
- "gethostname",
- "goose-acp-macros",
- "goose-agent",
- "goose-context-management",
- "goose-download-manager",
- "goose-mcp",
- "goose-providers",
- "goose-sdk-types",
- "goose-test-support",
- "http 1.5.0",
- "icu_calendar",
- "icu_locale",
- "ignore",
- "image 0.24.9",
- "include_dir",
- "indexmap 2.14.0",
- "indoc",
- "insta",
- "jsonschema",
- "jsonwebtoken",
- "keyring",
- "libc",
- "lru",
- "minijinja",
- "mockall",
- "nanoid",
- "nostr",
- "nostr-sdk",
- "ntapi",
- "oauth2",
- "once_cell",
- "openssl",
- "opentelemetry 0.32.0",
- "opentelemetry-appender-tracing",
- "opentelemetry-otlp 0.32.0",
- "opentelemetry-stdout",
- "opentelemetry_sdk 0.32.1",
- "pastey",
- "pctx_code_mode",
- "pem 4.0.0",
- "process-wrap",
- "rand 0.10.2",
- "rayon",
- "rcgen",
- "regex",
- "reqwest 0.13.4",
- "rmcp 3.1.2",
- "rubato",
- "rustls",
- "schemars 1.2.2",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "serde_urlencoded",
- "serde_yaml",
- "serial_test",
- "sha2 0.11.0",
- "shell-words",
- "shellexpand",
- "smithy-transport-reqwest",
- "sqlx",
- "strum 0.28.0",
- "subtle",
- "symphonia",
- "sys-info",
- "tempfile",
- "test-case",
- "thiserror 2.0.20",
- "tiktoken-rs",
- "tokenizers 0.23.1",
- "tokio",
- "tokio-cron-scheduler",
- "tokio-stream",
- "tokio-util",
- "tower",
- "tower-http 0.7.0",
- "tracing",
- "tracing-appender",
- "tracing-futures",
- "tracing-opentelemetry",
- "tracing-subscriber",
- "tree-sitter",
- "tree-sitter-go",
- "tree-sitter-java",
- "tree-sitter-javascript",
- "tree-sitter-kotlin-ng",
- "tree-sitter-python",
- "tree-sitter-ruby",
- "tree-sitter-rust",
- "tree-sitter-swift",
- "tree-sitter-typescript",
- "unicode-normalization",
- "url",
- "urlencoding",
- "uuid",
- "v_htmlescape",
- "webbrowser",
- "which 8.0.5",
- "winapi",
- "wiremock",
-]
-
-[[package]]
-name = "goose-acp-macros"
-version = "1.47.0"
-dependencies = [
- "quote",
- "syn 3.0.3",
-]
-
-[[package]]
-name = "goose-agent"
-version = "0.1.0-alpha.6"
-dependencies = [
- "anyhow",
- "async-trait",
- "goose-provider-types",
- "rmcp 3.1.2",
- "serde_json",
- "tokio",
- "tokio-util",
- "uuid",
-]
-
-[[package]]
-name = "goose-cli"
-version = "1.47.0"
-dependencies = [
- "anstream",
- "anyhow",
- "async-trait",
- "axum",
- "axum-server",
- "base64 0.23.1",
- "bat",
- "bzip2",
- "chrono",
- "clap",
- "clap_complete",
- "clap_complete_nushell",
- "clap_mangen",
- "cliclack",
- "comfy-table",
- "console",
- "dotenvy",
- "env-lock",
- "etcetera",
- "futures",
- "goose",
- "goose-mcp",
- "goose-providers",
- "indicatif",
- "libc",
- "ntapi",
- "open",
- "rand 0.10.2",
- "regex",
- "reqwest 0.13.4",
- "rmcp 3.1.2",
- "rustyline",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha2 0.11.0",
- "shlex 2.0.1",
- "sigstore-verify",
- "snap",
- "strsim",
- "strum 0.28.0",
- "tar",
- "tempfile",
- "test-case",
- "tokio",
- "tokio-util",
- "tracing",
- "tracing-subscriber",
- "url",
- "urlencoding",
- "webbrowser",
- "winapi",
- "zip",
-]
-
-[[package]]
-name = "goose-context-management"
-version = "0.1.0-alpha.6"
-dependencies = [
- "anyhow",
- "async-trait",
- "goose-providers",
- "include_dir",
- "minijinja",
- "rmcp 3.1.2",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "goose-download-manager"
-version = "0.1.0-alpha.6"
-dependencies = [
- "anyhow",
- "once_cell",
- "reqwest 0.13.4",
- "serde",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "goose-local-inference"
-version = "0.1.0-alpha.6"
-dependencies = [
- "anyhow",
- "async-stream",
- "async-trait",
- "base64 0.23.1",
- "chrono",
- "encoding_rs",
- "env-lock",
- "etcetera",
- "fs2",
- "futures",
- "goose-download-manager",
- "goose-provider-types",
- "goose-sdk-types",
- "hf-hub",
- "include_dir",
- "llama-cpp-2",
- "llama-cpp-sys-2",
- "minijinja",
- "regex",
- "reqwest 0.13.4",
- "rmcp 3.1.2",
- "safemlx",
- "safemlx-lm",
- "safemlx-lm-utils",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "goose-mcp"
-version = "1.47.0"
-dependencies = [
- "anyhow",
- "base64 0.23.1",
- "chrono",
- "docx-rs",
- "etcetera",
- "image 0.24.9",
- "include_dir",
- "indoc",
- "lopdf",
- "once_cell",
- "process-wrap",
- "rmcp 3.1.2",
- "schemars 1.2.2",
- "serde",
- "serde_json",
- "shell-words",
- "tempfile",
- "tokio",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
- "umya-spreadsheet",
-]
-
-[[package]]
-name = "goose-provider-types"
-version = "0.1.0-alpha.6"
-dependencies = [
- "anyhow",
- "async-stream",
- "async-trait",
- "base64 0.23.1",
- "chrono",
- "env-lock",
- "futures",
- "once_cell",
- "rand 0.10.2",
- "regex",
- "reqwest 0.13.4",
- "rmcp 3.1.2",
- "serde",
- "serde_json",
- "strum 0.28.0",
- "tempfile",
- "test-case",
- "thiserror 2.0.20",
- "tokio",
- "tokio-stream",
- "tracing",
- "unicode-normalization",
- "uuid",
-]
-
-[[package]]
-name = "goose-providers"
-version = "0.1.0-alpha.6"
-dependencies = [
- "anyhow",
- "async-stream",
- "async-trait",
- "chrono",
- "env-lock",
- "futures",
- "goose-local-inference",
- "goose-provider-types",
- "include_dir",
- "pem 4.0.0",
- "pkcs8 0.11.0",
- "reqwest 0.13.4",
- "rmcp 3.1.2",
- "sec1 0.8.1",
- "serde",
- "serde_json",
- "tempfile",
- "test-case",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "tracing",
- "url",
- "urlencoding",
- "wiremock",
-]
-
-[[package]]
-name = "goose-sdk"
-version = "0.1.0-alpha.6"
-dependencies = [
- "agent-client-protocol",
- "agent-client-protocol-schema",
- "anyhow",
- "base64 0.23.1",
- "futures",
- "goose-context-management",
- "goose-providers",
- "goose-sdk-types",
- "rmcp 3.1.2",
- "serde_json",
- "thiserror 2.0.20",
- "tokio",
- "tokio-util",
- "uniffi",
-]
-
-[[package]]
-name = "goose-sdk-types"
-version = "0.1.0-alpha.6"
-dependencies = [
- "agent-client-protocol",
- "agent-client-protocol-schema",
- "schemars 1.2.2",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "goose-test"
-version = "1.47.0"
-dependencies = [
- "clap",
- "serde_json",
-]
-
-[[package]]
-name = "goose-test-support"
-version = "1.47.0"
-dependencies = [
- "axum",
- "env-lock",
- "opentelemetry 0.32.0",
- "rmcp 3.1.2",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "group"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7585,6 +7163,428 @@ checksum = "f9cfef937e9c486488c7e3d949ae31c0f1d06bdacd75b99c086cb35356e30408"
 dependencies = [
  "is-wsl",
  "libc",
+]
+
+[[package]]
+name = "openduck"
+version = "1.47.0"
+dependencies = [
+ "agent-client-protocol",
+ "agent-client-protocol-http",
+ "agent-client-protocol-schema",
+ "anyhow",
+ "arboard",
+ "async-stream",
+ "async-trait",
+ "aws-config",
+ "aws-lc-rs",
+ "aws-sdk-bedrockruntime",
+ "aws-sdk-sagemakerruntime",
+ "aws-smithy-types",
+ "axum",
+ "axum-server",
+ "base64 0.23.1",
+ "blake3",
+ "byteorder",
+ "bytes",
+ "candle-core",
+ "candle-nn",
+ "candle-transformers",
+ "chrono",
+ "clap",
+ "ctor",
+ "dirs",
+ "dotenvy",
+ "dtor",
+ "env-lock",
+ "etcetera",
+ "fs-err",
+ "fs2",
+ "futures",
+ "gethostname",
+ "http 1.5.0",
+ "icu_calendar",
+ "icu_locale",
+ "ignore",
+ "image 0.24.9",
+ "include_dir",
+ "indexmap 2.14.0",
+ "indoc",
+ "insta",
+ "jsonschema",
+ "jsonwebtoken",
+ "keyring",
+ "libc",
+ "lru",
+ "minijinja",
+ "mockall",
+ "nanoid",
+ "nostr",
+ "nostr-sdk",
+ "ntapi",
+ "oauth2",
+ "once_cell",
+ "openduck-acp-macros",
+ "openduck-agent",
+ "openduck-context-management",
+ "openduck-download-manager",
+ "openduck-mcp",
+ "openduck-providers",
+ "openduck-sdk-types",
+ "openduck-test-support",
+ "openssl",
+ "opentelemetry 0.32.0",
+ "opentelemetry-appender-tracing",
+ "opentelemetry-otlp 0.32.0",
+ "opentelemetry-stdout",
+ "opentelemetry_sdk 0.32.1",
+ "pastey",
+ "pctx_code_mode",
+ "pem 4.0.0",
+ "process-wrap",
+ "rand 0.10.2",
+ "rayon",
+ "rcgen",
+ "regex",
+ "reqwest 0.13.4",
+ "rmcp 3.1.2",
+ "rubato",
+ "rustls",
+ "schemars 1.2.2",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "serde_urlencoded",
+ "serde_yaml",
+ "serial_test",
+ "sha2 0.11.0",
+ "shell-words",
+ "shellexpand",
+ "smithy-transport-reqwest",
+ "sqlx",
+ "strum 0.28.0",
+ "subtle",
+ "symphonia",
+ "sys-info",
+ "tempfile",
+ "test-case",
+ "thiserror 2.0.20",
+ "tiktoken-rs",
+ "tokenizers 0.23.1",
+ "tokio",
+ "tokio-cron-scheduler",
+ "tokio-stream",
+ "tokio-util",
+ "tower",
+ "tower-http 0.7.0",
+ "tracing",
+ "tracing-appender",
+ "tracing-futures",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
+ "tree-sitter",
+ "tree-sitter-go",
+ "tree-sitter-java",
+ "tree-sitter-javascript",
+ "tree-sitter-kotlin-ng",
+ "tree-sitter-python",
+ "tree-sitter-ruby",
+ "tree-sitter-rust",
+ "tree-sitter-swift",
+ "tree-sitter-typescript",
+ "unicode-normalization",
+ "url",
+ "urlencoding",
+ "uuid",
+ "v_htmlescape",
+ "webbrowser",
+ "which 8.0.5",
+ "winapi",
+ "wiremock",
+]
+
+[[package]]
+name = "openduck-acp-macros"
+version = "1.47.0"
+dependencies = [
+ "quote",
+ "syn 3.0.3",
+]
+
+[[package]]
+name = "openduck-agent"
+version = "0.1.0-alpha.6"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "openduck-provider-types",
+ "rmcp 3.1.2",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "uuid",
+]
+
+[[package]]
+name = "openduck-cli"
+version = "1.47.0"
+dependencies = [
+ "anstream",
+ "anyhow",
+ "async-trait",
+ "axum",
+ "axum-server",
+ "base64 0.23.1",
+ "bat",
+ "bzip2",
+ "chrono",
+ "clap",
+ "clap_complete",
+ "clap_complete_nushell",
+ "clap_mangen",
+ "cliclack",
+ "comfy-table",
+ "console",
+ "dotenvy",
+ "env-lock",
+ "etcetera",
+ "futures",
+ "indicatif",
+ "libc",
+ "ntapi",
+ "open",
+ "openduck",
+ "openduck-mcp",
+ "openduck-providers",
+ "rand 0.10.2",
+ "regex",
+ "reqwest 0.13.4",
+ "rmcp 3.1.2",
+ "rustyline",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2 0.11.0",
+ "shlex 2.0.1",
+ "sigstore-verify",
+ "snap",
+ "strsim",
+ "strum 0.28.0",
+ "tar",
+ "tempfile",
+ "test-case",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "urlencoding",
+ "webbrowser",
+ "winapi",
+ "zip",
+]
+
+[[package]]
+name = "openduck-context-management"
+version = "0.1.0-alpha.6"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "include_dir",
+ "minijinja",
+ "openduck-providers",
+ "rmcp 3.1.2",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "openduck-download-manager"
+version = "0.1.0-alpha.6"
+dependencies = [
+ "anyhow",
+ "once_cell",
+ "reqwest 0.13.4",
+ "serde",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "openduck-local-inference"
+version = "0.1.0-alpha.6"
+dependencies = [
+ "anyhow",
+ "async-stream",
+ "async-trait",
+ "base64 0.23.1",
+ "chrono",
+ "encoding_rs",
+ "env-lock",
+ "etcetera",
+ "fs2",
+ "futures",
+ "hf-hub",
+ "include_dir",
+ "llama-cpp-2",
+ "llama-cpp-sys-2",
+ "minijinja",
+ "openduck-download-manager",
+ "openduck-provider-types",
+ "openduck-sdk-types",
+ "regex",
+ "reqwest 0.13.4",
+ "rmcp 3.1.2",
+ "safemlx",
+ "safemlx-lm",
+ "safemlx-lm-utils",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "openduck-mcp"
+version = "1.47.0"
+dependencies = [
+ "anyhow",
+ "base64 0.23.1",
+ "chrono",
+ "docx-rs",
+ "etcetera",
+ "image 0.24.9",
+ "include_dir",
+ "indoc",
+ "lopdf",
+ "once_cell",
+ "process-wrap",
+ "rmcp 3.1.2",
+ "schemars 1.2.2",
+ "serde",
+ "serde_json",
+ "shell-words",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "umya-spreadsheet",
+]
+
+[[package]]
+name = "openduck-provider-types"
+version = "0.1.0-alpha.6"
+dependencies = [
+ "anyhow",
+ "async-stream",
+ "async-trait",
+ "base64 0.23.1",
+ "chrono",
+ "env-lock",
+ "futures",
+ "once_cell",
+ "rand 0.10.2",
+ "regex",
+ "reqwest 0.13.4",
+ "rmcp 3.1.2",
+ "serde",
+ "serde_json",
+ "strum 0.28.0",
+ "tempfile",
+ "test-case",
+ "thiserror 2.0.20",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "unicode-normalization",
+ "uuid",
+]
+
+[[package]]
+name = "openduck-providers"
+version = "0.1.0-alpha.6"
+dependencies = [
+ "anyhow",
+ "async-stream",
+ "async-trait",
+ "chrono",
+ "env-lock",
+ "futures",
+ "include_dir",
+ "openduck-local-inference",
+ "openduck-provider-types",
+ "pem 4.0.0",
+ "pkcs8 0.11.0",
+ "reqwest 0.13.4",
+ "rmcp 3.1.2",
+ "sec1 0.8.1",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "test-case",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tracing",
+ "url",
+ "urlencoding",
+ "wiremock",
+]
+
+[[package]]
+name = "openduck-sdk"
+version = "0.1.0-alpha.6"
+dependencies = [
+ "agent-client-protocol",
+ "agent-client-protocol-schema",
+ "anyhow",
+ "base64 0.23.1",
+ "futures",
+ "openduck-context-management",
+ "openduck-providers",
+ "openduck-sdk-types",
+ "rmcp 3.1.2",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
+ "tokio-util",
+ "uniffi",
+]
+
+[[package]]
+name = "openduck-sdk-types"
+version = "0.1.0-alpha.6"
+dependencies = [
+ "agent-client-protocol",
+ "agent-client-protocol-schema",
+ "schemars 1.2.2",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "openduck-test"
+version = "1.47.0"
+dependencies = [
+ "clap",
+ "serde_json",
+]
+
+[[package]]
+name = "openduck-test-support"
+version = "1.47.0"
+dependencies = [
+ "axum",
+ "env-lock",
+ "opentelemetry 0.32.0",
+ "rmcp 3.1.2",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
