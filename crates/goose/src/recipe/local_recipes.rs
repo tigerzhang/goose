@@ -3,30 +3,35 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::config::env as openduck_env;
 use crate::config::paths::Paths;
 use crate::recipe::read_recipe_file_content::{read_recipe_file, RecipeFile};
 use crate::recipe::Recipe;
 use crate::recipe::RECIPE_FILE_EXTENSIONS;
 
-const GOOSE_RECIPE_PATH_ENV_VAR: &str = "GOOSE_RECIPE_PATH";
-
 pub fn get_recipe_library_dir(is_global: bool) -> PathBuf {
     if is_global {
         Paths::config_dir().join("recipes")
     } else {
-        env::current_dir().unwrap().join(".goose/recipes")
+        Paths::find_project_dir(&env::current_dir().unwrap()).join("recipes")
     }
 }
 
 fn local_recipe_dirs() -> Vec<PathBuf> {
     let mut local_dirs = vec![PathBuf::from(".")];
 
-    if let Ok(recipe_path_env) = env::var(GOOSE_RECIPE_PATH_ENV_VAR) {
+    if let Some(recipe_path_env) = openduck_env::get_var("RECIPE_PATH") {
         let path_separator = if cfg!(windows) { ';' } else { ':' };
         local_dirs.extend(recipe_path_env.split(path_separator).map(PathBuf::from));
     }
     local_dirs.push(get_recipe_library_dir(true));
-    local_dirs.push(get_recipe_library_dir(false));
+    if let Ok(cwd) = env::current_dir() {
+        for name in Paths::project_dir_names() {
+            local_dirs.push(cwd.join(name).join("recipes"));
+        }
+    } else {
+        local_dirs.push(get_recipe_library_dir(false));
+    }
 
     // Also scan .agents/recipes/ for consistency with the .agents/ convention
     if let Ok(cwd) = env::current_dir() {

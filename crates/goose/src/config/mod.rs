@@ -1,5 +1,6 @@
 pub mod base;
 pub mod declarative_providers;
+pub mod env;
 mod experiments;
 pub mod extensions;
 mod migrations;
@@ -14,6 +15,7 @@ pub mod tls;
 pub use crate::agents::ExtensionConfig;
 pub use base::{merge_config_values, Config, ConfigError};
 pub use declarative_providers::DeclarativeProviderConfig;
+pub use env::{env_lookup, get_var, get_var_os, get_var_result};
 pub use experiments::ExperimentManager;
 pub use extensions::{
     get_all_extension_names, get_all_extensions, get_available_extensions, get_enabled_extensions,

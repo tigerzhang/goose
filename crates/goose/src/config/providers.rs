@@ -1,8 +1,8 @@
 use super::base::{Config, ConfigError};
+use super::env as openduck_env;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Mapping;
-use std::env;
 use tracing::warn;
 
 const PROVIDERS_CONFIG_KEY: &str = "providers";
@@ -63,7 +63,7 @@ pub fn set_provider_entry(
 }
 
 pub fn get_active_provider(config: &Config) -> Option<String> {
-    if let Ok(val) = env::var("GOOSE_PROVIDER") {
+    if let Some(val) = openduck_env::get_var("PROVIDER") {
         return Some(val);
     }
     if let Ok(val) = config.get_param::<String>(ACTIVE_PROVIDER_KEY) {
@@ -73,7 +73,7 @@ pub fn get_active_provider(config: &Config) -> Option<String> {
 }
 
 pub fn get_active_model(config: &Config) -> Option<String> {
-    if let Ok(val) = env::var("GOOSE_MODEL") {
+    if let Some(val) = openduck_env::get_var("MODEL") {
         return Some(val);
     }
     if let Some(provider_name) = get_active_provider(config) {

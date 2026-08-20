@@ -1,3 +1,4 @@
+use crate::config::env as openduck_env;
 use crate::config::paths::Paths;
 use crate::config::GooseMode;
 use crate::providers::private_file::{private_file_target_path, write_private_file};
@@ -81,14 +82,14 @@ impl From<keyring::Error> for ConfigError {
 /// - Secure secret storage in system keyring
 ///
 /// Configuration values are loaded with the following precedence:
-/// 1. Environment variables (exact key match)
-/// 2. Configuration file (~/.config/goose/config.yaml by default)
+/// 1. Environment variables (`OPENDUCK_*`, then legacy `GOOSE_*`, then the raw key)
+/// 2. Configuration file (~/.config/openduck/config.yaml by default, with goose fallback)
 ///
 /// Secrets are loaded with the following precedence:
-/// 1. Environment variables (exact key match)
-/// 2. System keyring (which can be disabled with GOOSE_DISABLE_KEYRING)
+/// 1. Environment variables (`OPENDUCK_*`, then legacy `GOOSE_*`, then the raw key)
+/// 2. System keyring (which can be disabled with OPENDUCK_DISABLE_KEYRING / GOOSE_DISABLE_KEYRING)
 /// 3. If the keyring is disabled, secrets are stored in a secrets file
-///    (~/.config/goose/secrets.yaml by default)
+///    (~/.config/openduck/secrets.yaml by default)
 ///
 /// # Examples
 ///
@@ -161,7 +162,7 @@ fn system_config_path() -> PathBuf {
 }
 
 fn additional_config_paths_from_env() -> Vec<PathBuf> {
-    env::var_os("GOOSE_ADDITIONAL_CONFIG_FILES")
+    openduck_env::get_var_os("ADDITIONAL_CONFIG_FILES")
         .map(|value| env::split_paths(&value).collect())
         .unwrap_or_default()
 }
@@ -203,7 +204,7 @@ impl Default for Config {
             secrets_cache: Arc::new(Mutex::new(None)),
         };
 
-        let keyring_disabled = env::var("GOOSE_DISABLE_KEYRING").is_ok()
+        let keyring_disabled = openduck_env::get_var_os("DISABLE_KEYRING").is_some()
             || no_secrets_config
                 .get_param::<serde_yaml::Value>("GOOSE_DISABLE_KEYRING")
                 .is_ok_and(|v| keyring_disabled_value(&v));
@@ -407,7 +408,7 @@ fn secret_storage(config_dir: &Path, _keyring_disabled: bool, _service: &str) ->
 impl Config {
     /// Get the global configuration instance.
     ///
-    /// This will initialize the configuration with the default path (~/.config/goose/config.yaml)
+    /// This will initialize the configuration with the default path (~/.config/openduck/config.yaml)
     /// if it hasn't been initialized yet.
     pub fn global() -> &'static Config {
         GLOBAL_CONFIG.get_or_init(Config::default)
@@ -419,8 +420,8 @@ impl Config {
     /// to manage multiple configuration files.
     pub fn new<P: AsRef<Path>>(config_path: P, service: &str) -> Result<Self, ConfigError> {
         let config_path = config_path.as_ref().to_path_buf();
-        let keyring_disabled =
-            env::var("GOOSE_DISABLE_KEYRING").is_ok() || keyring_disabled_in_config(&config_path);
+        let keyring_disabled = openduck_env::get_var_os("DISABLE_KEYRING").is_some()
+            || keyring_disabled_in_config(&config_path);
         let config_dir = config_path
             .parent()
             .map(Path::to_path_buf)
@@ -753,8 +754,7 @@ impl Config {
     /// - The value cannot be deserialized into the requested type
     /// - There is an error reading the config file
     pub fn get_param<T: for<'de> Deserialize<'de>>(&self, key: &str) -> Result<T, ConfigError> {
-        let env_key = key.to_uppercase();
-        if let Ok(val) = env::var(&env_key) {
+        if let Some(val) = openduck_env::env_lookup(key) {
             let value = Self::parse_env_value(&val)?;
             return Ok(serde_json::from_value(value)?);
         }
@@ -868,9 +868,7 @@ impl Config {
     /// - The value cannot be deserialized into the requested type
     /// - There is an error accessing the keyring
     pub fn get_secret<T: for<'de> Deserialize<'de>>(&self, key: &str) -> Result<T, ConfigError> {
-        // First check environment variables (convert to uppercase)
-        let env_key = key.to_uppercase();
-        if let Ok(val) = env::var(&env_key) {
+        if let Some(val) = openduck_env::env_lookup(key) {
             let value = Self::parse_env_value(&val)?;
             return Ok(serde_json::from_value(value)?);
         }
@@ -889,10 +887,10 @@ impl Config {
         primary: &str,
         maybe_secret: &[&str],
     ) -> Result<HashMap<String, String>, ConfigError> {
-        let use_env = env::var(primary.to_uppercase()).is_ok();
+        let use_env = openduck_env::env_lookup(primary).is_some();
         let get_value = |key: &str| -> Result<String, ConfigError> {
             if use_env {
-                env::var(key.to_uppercase()).map_err(|_| ConfigError::NotFound(key.to_string()))
+                openduck_env::env_lookup(key).ok_or_else(|| ConfigError::NotFound(key.to_string()))
             } else {
                 self.get_secret(key)
             }
@@ -1186,7 +1184,7 @@ config_value!(GOOSE_SEARCH_PATHS, Vec<String>);
 config_value!(GOOSE_MODE, GooseMode);
 impl Config {
     pub(crate) fn get_goose_mode_strict(&self) -> Result<GooseMode, ConfigError> {
-        match env::var("GOOSE_MODE") {
+        match openduck_env::get_var_result("MODE") {
             Ok(value) => {
                 let value = Self::parse_env_value(&value)?;
                 Ok(serde_json::from_value(value)?)

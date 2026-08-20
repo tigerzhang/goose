@@ -7,20 +7,24 @@ use std::{
 use crate::config::paths::Paths;
 use crate::hints::import_files::read_referenced_files;
 
+pub const OPENDUCK_HINTS_FILENAME: &str = ".openduckhints";
 pub const GOOSE_HINTS_FILENAME: &str = ".goosehints";
 pub const AGENTS_MD_FILENAME: &str = "AGENTS.md";
+
+pub fn default_context_filenames() -> Vec<String> {
+    vec![
+        OPENDUCK_HINTS_FILENAME.to_string(),
+        GOOSE_HINTS_FILENAME.to_string(),
+        AGENTS_MD_FILENAME.to_string(),
+    ]
+}
 
 pub fn get_context_filenames() -> Vec<String> {
     use crate::config::Config;
 
     Config::global()
         .get_param::<Vec<String>>("CONTEXT_FILE_NAMES")
-        .unwrap_or_else(|_| {
-            vec![
-                GOOSE_HINTS_FILENAME.to_string(),
-                AGENTS_MD_FILENAME.to_string(),
-            ]
-        })
+        .unwrap_or_else(|_| default_context_filenames())
 }
 
 #[derive(Default)]
@@ -321,6 +325,21 @@ mod tests {
         let temp_dir = tempfile::tempdir().expect("failed to create tempdir");
         let builder = GitignoreBuilder::new(temp_dir.path());
         builder.build().expect("failed to build gitignore")
+    }
+
+    #[test]
+    fn default_context_filenames_prefer_openduckhints() {
+        let names = default_context_filenames();
+        let openduck = names
+            .iter()
+            .position(|name| name == OPENDUCK_HINTS_FILENAME)
+            .expect(".openduckhints should be in the default list");
+        let goose = names
+            .iter()
+            .position(|name| name == GOOSE_HINTS_FILENAME)
+            .expect(".goosehints should be in the default list");
+        assert!(openduck < goose);
+        assert!(names.iter().any(|name| name == AGENTS_MD_FILENAME));
     }
 
     #[test]

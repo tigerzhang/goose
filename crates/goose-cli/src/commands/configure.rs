@@ -950,7 +950,7 @@ pub async fn configure_provider_dialog() -> anyhow::Result<bool> {
         Ok(models) if !models.is_empty() => select_model_from_list(&models, provider_meta)?,
         Ok(_) => {
             let default_model =
-                std::env::var("GOOSE_MODEL").unwrap_or(provider_meta.default_model.clone());
+                goose::config::get_var("MODEL").unwrap_or(provider_meta.default_model.clone());
             cliclack::input("Enter a model from that provider:")
                 .default_input(&default_model)
                 .interact()?
@@ -982,10 +982,10 @@ pub async fn configure_provider_dialog() -> anyhow::Result<bool> {
     let spin = spinner();
     spin.start("Checking your configuration...");
 
-    let toolshim_enabled = std::env::var("GOOSE_TOOLSHIM")
+    let toolshim_enabled = goose::config::get_var("TOOLSHIM")
         .map(|val| val == "1" || val.to_lowercase() == "true")
         .unwrap_or(false);
-    let toolshim_model = std::env::var("GOOSE_TOOLSHIM_OLLAMA_MODEL").ok();
+    let toolshim_model = goose::config::get_var("TOOLSHIM_OLLAMA_MODEL");
 
     match test_provider_configuration(&provider_name, &model, toolshim_enabled, toolshim_model)
         .await
@@ -1515,9 +1515,9 @@ pub async fn configure_settings_dialog() -> anyhow::Result<()> {
 pub fn configure_goose_mode_dialog() -> anyhow::Result<()> {
     let config = Config::global();
 
-    if std::env::var("GOOSE_MODE").is_ok() {
+    if goose::config::get_var_os("MODE").is_some() {
         let _ = cliclack::log::info(
-            "Notice: GOOSE_MODE environment variable is set and will override the configuration here.",
+            "Notice: OPENDUCK_MODE or GOOSE_MODE environment variable is set and will override the configuration here.",
         );
     }
 
@@ -1559,9 +1559,9 @@ pub fn configure_goose_mode_dialog() -> anyhow::Result<()> {
 pub fn configure_telemetry_dialog() -> anyhow::Result<()> {
     let config = Config::global();
 
-    if std::env::var("GOOSE_TELEMETRY_OFF").is_ok() {
+    if goose::config::get_var_os("TELEMETRY_OFF").is_some() {
         let _ = cliclack::log::info(
-            "Notice: GOOSE_TELEMETRY_OFF environment variable is set and will override the configuration here.",
+            "Notice: OPENDUCK_TELEMETRY_OFF or GOOSE_TELEMETRY_OFF environment variable is set and will override the configuration here.",
         );
     }
 
@@ -1592,9 +1592,9 @@ pub fn configure_telemetry_dialog() -> anyhow::Result<()> {
 pub fn configure_tool_output_dialog() -> anyhow::Result<()> {
     let config = Config::global();
 
-    if std::env::var("GOOSE_CLI_MIN_PRIORITY").is_ok() {
+    if goose::config::get_var_os("CLI_MIN_PRIORITY").is_some() {
         let _ = cliclack::log::info(
-            "Notice: GOOSE_CLI_MIN_PRIORITY environment variable is set and will override the configuration here.",
+            "Notice: OPENDUCK_CLI_MIN_PRIORITY or GOOSE_CLI_MIN_PRIORITY environment variable is set and will override the configuration here.",
         );
     }
     let tool_log_level = cliclack::select("Which tool output would you like to show?")
@@ -1625,9 +1625,9 @@ pub fn configure_tool_output_dialog() -> anyhow::Result<()> {
 pub fn configure_keyring_dialog() -> anyhow::Result<()> {
     let config = Config::global();
 
-    if std::env::var("GOOSE_DISABLE_KEYRING").is_ok() {
+    if goose::config::get_var_os("DISABLE_KEYRING").is_some() {
         let _ = cliclack::log::info(
-            "Notice: GOOSE_DISABLE_KEYRING environment variable is set and will override the configuration here.",
+            "Notice: OPENDUCK_DISABLE_KEYRING or GOOSE_DISABLE_KEYRING environment variable is set and will override the configuration here.",
         );
     }
 

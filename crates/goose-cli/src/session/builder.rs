@@ -379,7 +379,7 @@ async fn resolve_provider_and_model(
     });
     let matching_environment_model =
         if provider_overridden && configured_provider.as_deref() == Some(provider_name.as_str()) {
-            std::env::var("GOOSE_MODEL").ok()
+            goose::config::get_var("MODEL")
         } else {
             None
         };

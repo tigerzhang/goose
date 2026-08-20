@@ -332,21 +332,25 @@ pub fn discover_filesystem_sources(working_dir: &Path) -> Vec<SourceEntry> {
     let home = dirs::home_dir();
     let config = Paths::config_dir();
 
-    let local_recipe_dirs: Vec<PathBuf> = vec![
-        working_dir.join(".goose/recipes"),
-        working_dir.join(".agents/recipes"),
-    ];
+    let local_recipe_dirs: Vec<PathBuf> = Paths::project_dir_names()
+        .iter()
+        .map(|name| working_dir.join(name).join("recipes"))
+        .chain(std::iter::once(working_dir.join(".agents/recipes")))
+        .collect();
 
-    let global_recipe_dirs: Vec<PathBuf> = std::env::var("GOOSE_RECIPE_PATH")
-        .ok()
+    let global_recipe_dirs: Vec<PathBuf> = crate::config::env::get_var("RECIPE_PATH")
         .into_iter()
         .flat_map(|p| {
             let sep = if cfg!(windows) { ';' } else { ':' };
             p.split(sep).map(PathBuf::from).collect::<Vec<_>>()
         })
         .chain(
+            Paths::project_dir_names()
+                .iter()
+                .filter_map(|name| home.as_ref().map(|h| h.join(name).join("recipes"))),
+        )
+        .chain(
             [
-                home.as_ref().map(|h| h.join(".goose/recipes")),
                 Some(config.join("recipes")),
                 home.as_ref().map(|h| h.join(".agents/recipes")),
             ]
@@ -355,21 +359,28 @@ pub fn discover_filesystem_sources(working_dir: &Path) -> Vec<SourceEntry> {
         )
         .collect();
 
-    let local_agent_dirs: Vec<PathBuf> = vec![
-        working_dir.join(".goose/agents"),
-        working_dir.join(".claude/agents"),
-        working_dir.join(".agents/agents"),
-    ];
+    let local_agent_dirs: Vec<PathBuf> = Paths::project_dir_names()
+        .iter()
+        .map(|name| working_dir.join(name).join("agents"))
+        .chain([
+            working_dir.join(".claude/agents"),
+            working_dir.join(".agents/agents"),
+        ])
+        .collect();
 
-    let global_agent_dirs: Vec<PathBuf> = [
-        home.as_ref().map(|h| h.join(".goose/agents")),
-        home.as_ref().map(|h| h.join(".agents/agents")),
-        Some(config.join("agents")),
-        home.as_ref().map(|h| h.join(".claude/agents")),
-    ]
-    .into_iter()
-    .flatten()
-    .collect();
+    let global_agent_dirs: Vec<PathBuf> = Paths::project_dir_names()
+        .iter()
+        .filter_map(|name| home.as_ref().map(|h| h.join(name).join("agents")))
+        .chain(
+            [
+                home.as_ref().map(|h| h.join(".agents/agents")),
+                Some(config.join("agents")),
+                home.as_ref().map(|h| h.join(".claude/agents")),
+            ]
+            .into_iter()
+            .flatten(),
+        )
+        .collect();
 
     scan_recipes_from_dir(
         working_dir,
