@@ -432,9 +432,12 @@ if [[ ":$PATH:" != *":$OPENDUCK_BIN_DIR:"* ]]; then
     echo "# Add to your PowerShell profile"
     echo '$profilePath = $PROFILE'
     echo 'if (!(Test-Path $profilePath)) { New-Item -Path $profilePath -ItemType File -Force }'
-    echo 'Add-Content -Path $profilePath -Value ''$env:PATH = "$env:USERPROFILE\.local\bin;$env:PATH"'''
+    echo "Add-Content -Path \$profilePath -Value '\$env:PATH = \"$OPENDUCK_BIN_DIR;\$env:PATH\"'"
     echo "# Reload profile or restart PowerShell"
     echo '. $PROFILE'
+    echo ""
+    echo "For Git Bash / MSYS2:"
+    echo "    export PATH=\"$OPENDUCK_BIN_DIR:\$PATH\""
     echo ""
     echo "Alternatively, you can run:"
     echo "    openduck configure"

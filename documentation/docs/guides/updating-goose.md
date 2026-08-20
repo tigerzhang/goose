@@ -164,5 +164,5 @@ The OpenDuck CLI and desktop apps are under active and continuous development. T
 </Tabs>
 
 :::info Updating in CI/CD
-If you're running OpenDuck in CI or other non-interactive environments, pin a specific version with `GOOSE_VERSION` for reproducible installs. See [CI/CD Environments](/docs/tutorials/cicd) for a complete example and usage details.
+If you're running OpenDuck in CI or other non-interactive environments, pin a specific version with `OPENDUCK_VERSION` (legacy `GOOSE_VERSION`) for reproducible installs. See [CI/CD Environments](/docs/tutorials/cicd) for a complete example and usage details.
 :::

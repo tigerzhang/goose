@@ -81,9 +81,10 @@ jobs:
         run: |
           mkdir -p /home/runner/.local/bin
           curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh \
-            | CONFIGURE=false OPENDUCK_BIN_DIR=/home/runner/.local/bin bash
+            | CONFIGURE=false OPENDUCK_BIN_DIR=/home/runner/.local/bin GOOSE_BIN_DIR=/home/runner/.local/bin bash
           echo "/home/runner/.local/bin" >> $GITHUB_PATH
-          openduck --version
+          # Stable still ships the pre-rebrand installer until this PR is released.
+          openduck --version || goose --version
       
       - name: Configure OpenDuck for CI
         env:
@@ -187,7 +188,7 @@ jobs:
           ls -la
           echo ""
           echo "🤖 Applying changes to goose-cli-commands.md..."
-          goose run --recipe ../recipes/update-cli-commands.yaml
+          openduck run --recipe ../recipes/update-cli-commands.yaml || goose run --recipe ../recipes/update-cli-commands.yaml
       
       - name: Upload automation outputs
         if: always()

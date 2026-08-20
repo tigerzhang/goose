@@ -98,7 +98,7 @@ openduck update --reconfigure
 ---
 
 #### completion
-Generate shell-specific scripts to enable tab completion of goose commands, subcommands, and options. The script is printed to stdout, so you need to redirect it to the appropriate location for your shell and then reload or source your shell configuration.
+Generate shell-specific scripts to enable tab completion of OpenDuck commands, subcommands, and options. The script is printed to stdout, so you need to redirect it to the appropriate location for your shell and then reload or source your shell configuration.
 
 Once installed, you can:
 - Press Tab to see available commands and subcommands
@@ -151,7 +151,9 @@ source ~/.bashrc
 <TabItem value="fish" label="Fish">
 
 ```bash
-openduck completion fish > ~/.config/fish/completions/goose.fish
+openduck completion fish > ~/.config/fish/completions/openduck.fish
+# Optional: also complete the legacy goose alias
+openduck completion fish | sed 's/complete -c openduck/complete -c goose/' > ~/.config/fish/completions/goose.fish
 ```
 
 Then restart your terminal or run `exec fish`.
@@ -162,12 +164,12 @@ Then restart your terminal or run `exec fish`.
 ```nu
 let autoload_dir = ($nu.user-autoload-dirs | first)
 mkdir $autoload_dir
-openduck completion nu | save --force ($autoload_dir | path join "goose.nu")
+openduck completion nu | save --force ($autoload_dir | path join "openduck.nu")
 ```
 
 Then restart Nushell or run:
 ```nu
-source (($nu.user-autoload-dirs | first) | path join "goose.nu")
+source (($nu.user-autoload-dirs | first) | path join "openduck.nu")
 ```
 
 </TabItem>

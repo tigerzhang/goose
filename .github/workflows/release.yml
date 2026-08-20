@@ -160,7 +160,6 @@ jobs:
             goose-*.tar.gz
             goose-*.zip
             OpenDuck*.zip
-            Goose*.zip
             *.deb
             *.rpm
             *.flatpak
@@ -180,7 +179,6 @@ jobs:
             goose-*.tar.gz
             goose-*.zip
             OpenDuck*.zip
-            Goose*.zip
             *.deb
             *.rpm
             *.flatpak
@@ -205,7 +203,6 @@ jobs:
             goose-*.tar.gz
             goose-*.zip
             OpenDuck*.zip
-            Goose*.zip
             *.deb
             *.rpm
             *.flatpak

@@ -83,8 +83,9 @@ cargo test -p
 cd ui/desktop
 pnpm install
 
-# Copy the goose binary to the expected location
+# Copy the OpenDuck binary (and goose alias) to the expected location
 mkdir -p src/bin
+cp ../../target/release/openduck src/bin/
 cp ../../target/release/goose src/bin/
 ```
 
@@ -96,7 +97,7 @@ Works on all Linux distributions:
 pnpm run make --targets=@electron-forge/maker-zip
 ```
 
-Output: `out/make/zip/linux/x64/goose-linux-x64-{version}.zip`
+Output: `out/make/zip/linux/x64/OpenDuck-linux-x64-{version}.zip`
 
 #### Option B: DEB Package
 For Debian/Ubuntu systems:
@@ -104,7 +105,7 @@ For Debian/Ubuntu systems:
 pnpm run make --targets=@electron-forge/maker-deb
 ```
 
-Output: `out/make/deb/x64/goose_{version}_amd64.deb`
+Output: `out/make/deb/x64/OpenDuck_{version}_amd64.deb`
 
 #### Option C: Both Formats
 ```bash
@@ -115,12 +116,12 @@ pnpm run make
 
 #### From Build Directory
 ```bash
-./out/goose-linux-x64/goose
+./out/OpenDuck-linux-x64/OpenDuck
 ```
 
 #### Install DEB Package (if built)
 ```bash
-sudo dpkg -i out/make/deb/x64/goose_*.deb
+sudo dpkg -i out/make/deb/x64/OpenDuck_*.deb
 ```
 
 ## Troubleshooting
@@ -142,14 +143,14 @@ These are harmless and don't affect functionality. To suppress them, create a la
 
 ```bash
 #!/bin/bash
-cd /path/to/goose/ui/desktop/out/goose-linux-x64
-./goose 2>&1 | grep -v "GLib-GObject" | grep -v "browser_main_loop"
+cd /path/to/openduck/ui/desktop/out/OpenDuck-linux-x64
+./OpenDuck 2>&1 | grep -v "GLib-GObject" | grep -v "browser_main_loop"
 ```
 
-#### Goose Binary Not Found
-If you see "Goose binary not found", ensure you've:
+#### OpenDuck Binary Not Found
+If you see "OpenDuck binary not found", ensure you've:
 1. Built the Rust binary: `cargo build --release -p openduck-cli --bin openduck --bin goose`
-2. Copied it to the right location: `cp ../../target/release/goose src/bin/`
+2. Copied both binaries: `cp ../../target/release/openduck ../../target/release/goose src/bin/`
 3. Rebuilt the application: `pnpm run make`
 
 ### Distribution-Specific Notes
@@ -187,25 +188,25 @@ For active development:
 ## Creating System Integration
 
 ### Desktop Entry
-Create `~/.local/share/applications/goose.desktop`:
+Create `~/.local/share/applications/openduck.desktop`:
 ```ini
 [Desktop Entry]
-Name=goose AI Agent
+Name=OpenDuck AI Agent
 Comment=Local AI agent for development tasks
-Exec=/path/to/goose/ui/desktop/out/goose-linux-x64/goose %U
-Icon=/path/to/goose/ui/desktop/out/goose-linux-x64/resources/app.asar.unpacked/src/images/icon.png
+Exec=/path/to/openduck/ui/desktop/out/OpenDuck-linux-x64/OpenDuck %U
+Icon=/path/to/openduck/ui/desktop/out/OpenDuck-linux-x64/resources/app.asar.unpacked/src/images/icon.png
 Terminal=false
 Type=Application
 Categories=Development;Utility;
 StartupNotify=true
-MimeType=x-scheme-handler/goose
+MimeType=x-scheme-handler/openduck;x-scheme-handler/goose
 ```
 
 ### System-wide Installation
 To install system-wide:
 ```bash
-sudo cp -r out/goose-linux-x64 /opt/goose
-sudo ln -s /opt/goose/goose /usr/local/bin/goose-gui
+sudo cp -r out/OpenDuck-linux-x64 /opt/openduck
+sudo ln -s /opt/openduck/OpenDuck /usr/local/bin/openduck-gui
 ```
 
 ## Contributing

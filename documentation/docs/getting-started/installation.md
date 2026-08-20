@@ -33,9 +33,9 @@ import { PanelLeft } from 'lucide-react';
           :::
         </div>
         <h3>Option 2: Install via Homebrew</h3>
-        Homebrew downloads the [same app](https://github.com/Homebrew/homebrew-cask/blob/master/Casks/b/block-goose.rb) but can take care of updates too.
+        Homebrew currently publishes the desktop app as [`block-goose`](https://github.com/Homebrew/homebrew-cask/blob/master/Casks/b/block-goose.rb). An `openduck` cask name is the intended follow-up after that formula is renamed.
         ```bash
-        brew install --cask openduck
+        brew install --cask block-goose
         ```
         ---
         <div style={{ marginTop: '1rem' }}>
@@ -73,9 +73,9 @@ import { PanelLeft } from 'lucide-react';
         :::
 
         <h3>Option 2: Install via Homebrew</h3>
-        Homebrew downloads the [a precompiled CLI tool](https://github.com/Homebrew/homebrew-core/blob/master/Formula/b/block-goose-cli.rb) and can take care of updates.
+        Homebrew currently publishes the CLI as [`block-goose-cli`](https://github.com/Homebrew/homebrew-core/blob/master/Formula/b/block-goose-cli.rb). An `openduck` formula name is the intended follow-up after that formula is renamed.
         ```bash
-        brew install openduck
+        brew install block-goose-cli
         ```
       </TabItem>
     </Tabs>
@@ -181,7 +181,8 @@ import { PanelLeft } from 'lucide-react';
         <details>
           <summary>For Git Bash/MSYS2</summary>
           ```bash
-          echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+          # Default Git Bash/MSYS2 install dir is $USERPROFILE/openduck
+          echo 'export PATH="$USERPROFILE/openduck:$PATH"' >> ~/.bashrc
           source ~/.bashrc
           ```
         </details>
@@ -403,7 +404,7 @@ While core configurations are shared between interfaces, extensions have flexibi
 </Tabs>
 
 ## Pin an OpenDuck version in CI/CD
-In CI/CD (and other automated, non-interactive environments), pin a specific version with `GOOSE_VERSION` to make installs reproducible and avoid 404s when downloading the OpenDuck CLI binary assets if the `stable` release tag doesn’t include them.
+In CI/CD (and other automated, non-interactive environments), pin a specific version with `OPENDUCK_VERSION` (legacy `GOOSE_VERSION`) to make installs reproducible and avoid 404s when downloading the OpenDuck CLI binary assets if the `stable` release tag doesn’t include them.
 
 See [CI/CD Environments](/docs/tutorials/cicd) for a complete example and usage details.
 

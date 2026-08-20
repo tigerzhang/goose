@@ -62,9 +62,10 @@ cd ../..  # Go to project root
 cargo build --release -p openduck-cli --bin openduck --bin goose
 ```
 
-2. Copy the binary to the expected location:
+2. Copy the binaries to the expected location:
 ```bash
 mkdir -p src/bin
+cp ../../target/release/openduck src/bin/
 cp ../../target/release/goose src/bin/
 ```
 
@@ -81,10 +82,10 @@ pnpm run make --targets=@electron-forge/maker-flatpak
 ```
 
 The built application will be available in:
-- ZIP: `out/make/zip/linux/x64/goose-linux-x64-{version}.zip`
-- DEB: `out/make/deb/x64/goose_{version}_amd64.deb`
+- ZIP: `out/make/zip/linux/x64/OpenDuck-linux-x64-{version}.zip`
+- DEB: `out/make/deb/x64/OpenDuck_{version}_amd64.deb`
 - Flatpak: `out/make/flatpak/x86_64/*.flatpak`
-- Executable: `out/goose-linux-x64/goose`
+- Executable: `out/OpenDuck-linux-x64/OpenDuck`
 
 ### Windows
 Use the existing Windows build process as documented.

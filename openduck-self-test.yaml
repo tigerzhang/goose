@@ -127,7 +127,7 @@ extensions:
     name: skills
 
 prompt: |
-  Execute the Goose Self-Testing Integration Suite in {{ workspace_dir }}.
+  Execute the OpenDuck Self-Testing Integration Suite in {{ workspace_dir }}.
   Test phases: {{ test_phases }}, Depth: {{ test_depth }}, Parallel: {{ parallel_tests }}
 
   ## 🚀 INITIALIZATION
@@ -450,7 +450,7 @@ prompt: |
 
   ```
   ========================================
-  GOOSE SELF-TEST SUMMARY
+  OPENDUCK SELF-TEST SUMMARY
   ========================================
 
   ✅ OVERALL RESULT: [PASS/FAIL]
