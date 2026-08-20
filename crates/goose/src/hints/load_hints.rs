@@ -343,6 +343,26 @@ mod tests {
     }
 
     #[test]
+    fn load_hint_files_reads_openduckhints_and_goosehints() {
+        let dir = TempDir::new().unwrap();
+        fs::write(
+            dir.path().join(OPENDUCK_HINTS_FILENAME),
+            "openduck hint content",
+        )
+        .unwrap();
+        fs::write(dir.path().join(GOOSE_HINTS_FILENAME), "goose hint content").unwrap();
+        let gitignore = create_dummy_gitignore();
+        let hints = load_hint_files(dir.path(), &default_context_filenames(), &gitignore);
+
+        assert!(hints.contains("openduck hint content"));
+        assert!(hints.contains("goose hint content"));
+        assert!(
+            hints.find("openduck hint content").unwrap()
+                < hints.find("goose hint content").unwrap()
+        );
+    }
+
+    #[test]
     fn test_goosehints_when_present() {
         let dir = TempDir::new().unwrap();
 

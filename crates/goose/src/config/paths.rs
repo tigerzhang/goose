@@ -1,6 +1,8 @@
 use etcetera::{choose_app_strategy, AppStrategy, AppStrategyArgs};
 use std::collections::HashSet;
+use std::env;
 use std::ffi::OsString;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
@@ -11,7 +13,9 @@ pub const PROJECT_DIR_NAMES: [&str; 2] = [".openduck", ".goose"];
 fn current_app_args() -> AppStrategyArgs {
     AppStrategyArgs {
         top_level_domain: "dev".to_string(),
-        author: "OpenDuck".to_string(),
+        // Windows joins author/app_name; an empty author yields %APPDATA%/OpenDuck/config
+        // instead of %APPDATA%/OpenDuck/OpenDuck/config. XDG only uses app_name.
+        author: String::new(),
         app_name: "OpenDuck".to_string(),
     }
 }
@@ -40,14 +44,14 @@ fn dir_is_populated(path: &Path) -> bool {
     if path.is_file() {
         return true;
     }
-    std::fs::read_dir(path)
+    fs::read_dir(path)
         .map(|mut entries| entries.next().is_some())
         .unwrap_or(false)
 }
 
 fn copy_dir_all(source: &Path, destination: &Path) -> std::io::Result<()> {
-    std::fs::create_dir_all(destination)?;
-    for entry in std::fs::read_dir(source)? {
+    fs::create_dir_all(destination)?;
+    for entry in fs::read_dir(source)? {
         let entry = entry?;
         let source_path = entry.path();
         let destination_path = destination.join(entry.file_name());
@@ -55,38 +59,73 @@ fn copy_dir_all(source: &Path, destination: &Path) -> std::io::Result<()> {
         if file_type.is_dir() {
             copy_dir_all(&source_path, &destination_path)?;
         } else if file_type.is_file() {
-            std::fs::copy(&source_path, &destination_path)?;
+            fs::copy(&source_path, &destination_path)?;
         }
     }
     Ok(())
 }
 
-static MIGRATION_ATTEMPTS: OnceLock<Mutex<HashSet<PathBuf>>> = OnceLock::new();
+fn migration_staging_dir(dest: &Path) -> PathBuf {
+    match dest.file_name() {
+        Some(name) => {
+            let mut staging_name = name.to_os_string();
+            staging_name.push(".migrating");
+            match dest.parent() {
+                Some(parent) => parent.join(staging_name),
+                None => PathBuf::from(staging_name),
+            }
+        }
+        None => dest.with_extension("migrating"),
+    }
+}
+
+fn migrate_via_staging(legacy_dir: &Path, new_dir: &Path, staging: &Path) -> std::io::Result<()> {
+    if staging.exists() {
+        fs::remove_dir_all(staging)?;
+    }
+    copy_dir_all(legacy_dir, staging)?;
+    if dir_is_populated(new_dir) {
+        let _ = fs::remove_dir_all(staging);
+        return Ok(());
+    }
+    if new_dir.exists() {
+        match fs::remove_dir(new_dir) {
+            Ok(()) => {}
+            Err(_) if dir_is_populated(new_dir) => {
+                let _ = fs::remove_dir_all(staging);
+                return Ok(());
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    fs::rename(staging, new_dir)
+}
+
+static MIGRATION_LOCK: OnceLock<Mutex<HashSet<PathBuf>>> = OnceLock::new();
 
 fn maybe_migrate_dir(new_dir: &Path, legacy_dir: &Path) {
-    if new_dir == legacy_dir || dir_is_populated(new_dir) || !legacy_dir.exists() {
+    if new_dir == legacy_dir || !legacy_dir.exists() {
         return;
     }
 
-    let attempted = MIGRATION_ATTEMPTS.get_or_init(|| Mutex::new(HashSet::new()));
-    {
-        let mut set = attempted.lock().unwrap_or_else(|e| e.into_inner());
-        if !set.insert(new_dir.to_path_buf()) {
-            return;
-        }
+    let lock = MIGRATION_LOCK.get_or_init(|| Mutex::new(HashSet::new()));
+    let mut completed = lock.lock().unwrap_or_else(|e| e.into_inner());
+    if completed.contains(new_dir) || dir_is_populated(new_dir) {
+        return;
     }
 
-    match copy_dir_all(legacy_dir, new_dir) {
+    let staging = migration_staging_dir(new_dir);
+    match migrate_via_staging(legacy_dir, new_dir, &staging) {
         Ok(()) => {
-            let message = format!(
+            completed.insert(new_dir.to_path_buf());
+            tracing::info!(
                 "Migrated configuration from {} to {}. The original files were left in place.",
                 legacy_dir.display(),
                 new_dir.display()
             );
-            eprintln!("{message}");
-            tracing::info!("{message}");
         }
         Err(error) => {
+            let _ = fs::remove_dir_all(&staging);
             tracing::warn!(
                 "Failed to migrate {} to {}: {error}",
                 legacy_dir.display(),
@@ -129,7 +168,17 @@ impl Paths {
     }
 
     pub(crate) fn path_root() -> Option<PathBuf> {
-        Self::validated_path_root(openduck_env::get_var_os("PATH_ROOT"))
+        if let Some(path) = Self::validated_path_root(env::var_os("OPENDUCK_PATH_ROOT")) {
+            return Some(path);
+        }
+        if env::var_os("OPENDUCK_PATH_ROOT").is_some() {
+            tracing::warn!("OPENDUCK_PATH_ROOT is set but is not an absolute path; ignoring");
+        }
+        if let Some(path) = Self::validated_path_root(env::var_os("GOOSE_PATH_ROOT")) {
+            openduck_env::warn_legacy("GOOSE_PATH_ROOT", "OPENDUCK_PATH_ROOT");
+            return Some(path);
+        }
+        None
     }
 
     fn validated_path_root(value: Option<OsString>) -> Option<PathBuf> {
@@ -212,6 +261,7 @@ mod tests {
     use super::Paths;
     use std::ffi::OsString;
     use std::fs;
+    use std::path::PathBuf;
 
     #[test]
     fn path_root_requires_an_absolute_path() {
@@ -270,6 +320,37 @@ mod tests {
         assert_eq!(Paths::path_root(), None);
     }
 
+    #[test]
+    fn path_root_falls_back_to_absolute_goose_when_openduck_is_relative() {
+        let goose = std::env::current_dir()
+            .unwrap()
+            .join("nonexistent-goose-root");
+        let goose_s = goose.to_string_lossy().into_owned();
+        let _guard = env_lock::lock_env([
+            ("OPENDUCK_PATH_ROOT", Some("relative/openduck")),
+            ("GOOSE_PATH_ROOT", Some(goose_s.as_str())),
+        ]);
+        assert_eq!(Paths::path_root(), Some(goose));
+    }
+
+    #[test]
+    fn windows_config_dir_is_not_nested_openduck() {
+        use etcetera::app_strategy::{AppStrategy, Windows};
+
+        let config = Windows::new(super::current_app_args())
+            .expect("windows strategy")
+            .config_dir();
+        let normalized = config.to_string_lossy().replace('\\', "/");
+        assert!(
+            normalized.ends_with("OpenDuck/config") || normalized.ends_with("OpenDuck/config/"),
+            "expected %APPDATA%/OpenDuck/config, got {config:?}"
+        );
+        assert!(
+            !normalized.contains("OpenDuck/OpenDuck"),
+            "Windows config dir should not nest OpenDuck/OpenDuck: {config:?}"
+        );
+    }
+
     #[cfg(unix)]
     #[test]
     fn config_dir_migrates_legacy_goose_config() {
@@ -300,6 +381,77 @@ mod tests {
             "GOOSE_PROVIDER: openai\n"
         );
         assert!(legacy.join("config.yaml").exists());
+    }
+
+    #[cfg(unix)]
+    fn isolated_xdg() -> (tempfile::TempDir, String, String, String) {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let xdg_config = tmp.path().join("xdg-config");
+        let xdg_data = tmp.path().join("xdg-data");
+        let xdg_state = tmp.path().join("xdg-state");
+        fs::create_dir_all(&xdg_config).unwrap();
+        (
+            tmp,
+            xdg_config.to_string_lossy().into_owned(),
+            xdg_data.to_string_lossy().into_owned(),
+            xdg_state.to_string_lossy().into_owned(),
+        )
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn config_dir_does_not_overwrite_populated_openduck_dir() {
+        let (_tmp, xdg_config_s, xdg_data_s, xdg_state_s) = isolated_xdg();
+        let _guard = env_lock::lock_env([
+            ("OPENDUCK_PATH_ROOT", None::<&str>),
+            ("GOOSE_PATH_ROOT", None::<&str>),
+            ("XDG_CONFIG_HOME", Some(xdg_config_s.as_str())),
+            ("XDG_DATA_HOME", Some(xdg_data_s.as_str())),
+            ("XDG_STATE_HOME", Some(xdg_state_s.as_str())),
+        ]);
+
+        let new_dir = PathBuf::from(&xdg_config_s).join("openduck");
+        fs::create_dir_all(&new_dir).unwrap();
+        fs::write(new_dir.join("config.yaml"), "provider: already-migrated\n").unwrap();
+
+        let legacy = Paths::legacy_config_dir();
+        fs::create_dir_all(&legacy).unwrap();
+        fs::write(legacy.join("config.yaml"), "provider: legacy\n").unwrap();
+
+        let resolved = Paths::config_dir();
+        assert_eq!(resolved, new_dir);
+        assert_eq!(
+            fs::read_to_string(new_dir.join("config.yaml")).unwrap(),
+            "provider: already-migrated\n"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn config_dir_falls_back_to_legacy_when_copy_fails() {
+        let (_tmp, xdg_config_s, xdg_data_s, xdg_state_s) = isolated_xdg();
+        let _guard = env_lock::lock_env([
+            ("OPENDUCK_PATH_ROOT", None::<&str>),
+            ("GOOSE_PATH_ROOT", None::<&str>),
+            ("XDG_CONFIG_HOME", Some(xdg_config_s.as_str())),
+            ("XDG_DATA_HOME", Some(xdg_data_s.as_str())),
+            ("XDG_STATE_HOME", Some(xdg_state_s.as_str())),
+        ]);
+
+        let legacy = Paths::legacy_config_dir();
+        fs::create_dir_all(&legacy).unwrap();
+        fs::write(legacy.join("secrets.yaml"), "SECRET: keep-me\n").unwrap();
+
+        let staging = super::migration_staging_dir(&PathBuf::from(&xdg_config_s).join("openduck"));
+        fs::write(&staging, "not a directory").unwrap();
+
+        let resolved = Paths::config_dir();
+        assert_eq!(resolved, legacy);
+        assert_eq!(
+            fs::read_to_string(legacy.join("secrets.yaml")).unwrap(),
+            "SECRET: keep-me\n"
+        );
+        assert!(!PathBuf::from(&xdg_config_s).join("openduck").exists());
     }
 
     #[test]

@@ -5,7 +5,7 @@ use crate::agents::subagent_task_config::{TaskConfig, DEFAULT_SUBAGENT_MAX_TURNS
 use crate::agents::tool_execution::{ToolCallContext, ToolCallNotificationEmitter};
 use crate::agents::AgentConfig;
 use crate::config::paths::Paths;
-use crate::config::{Config, GooseMode};
+use crate::config::{get_var, Config, GooseMode};
 use crate::providers;
 use crate::recipe::build_recipe::build_recipe_from_template;
 use crate::recipe::local_recipes::load_local_recipe_file;
@@ -338,7 +338,7 @@ pub fn discover_filesystem_sources(working_dir: &Path) -> Vec<SourceEntry> {
         .chain(std::iter::once(working_dir.join(".agents/recipes")))
         .collect();
 
-    let global_recipe_dirs: Vec<PathBuf> = crate::config::env::get_var("RECIPE_PATH")
+    let global_recipe_dirs: Vec<PathBuf> = get_var("RECIPE_PATH")
         .into_iter()
         .flat_map(|p| {
             let sep = if cfg!(windows) { ';' } else { ':' };
@@ -1714,7 +1714,7 @@ impl SummonClient {
         provider_name: &str,
         provider_default_model: Option<&str>,
     ) -> Result<goose_providers::model::ModelConfig, anyhow::Error> {
-        let env_model = std::env::var("GOOSE_SUBAGENT_MODEL").ok();
+        let env_model = get_var("SUBAGENT_MODEL");
         let recipe_settings = recipe.settings.as_ref();
         let configured = Config::global().all_values().ok();
         let configured_provider = configured
@@ -1762,7 +1762,7 @@ impl SummonClient {
             })
             .ok_or_else(|| {
                 anyhow::anyhow!(
-                    "No model configured for provider '{}'; set GOOSE_SUBAGENT_MODEL",
+                    "No model configured for provider '{}'; set OPENDUCK_SUBAGENT_MODEL",
                     provider_name
                 )
             })?;
@@ -1810,7 +1810,7 @@ impl SummonClient {
         ),
         anyhow::Error,
     > {
-        let env_provider = std::env::var("GOOSE_SUBAGENT_PROVIDER").ok();
+        let env_provider = get_var("SUBAGENT_PROVIDER");
         let provider_name = env_provider
             .clone()
             .or_else(|| params.provider.clone())
@@ -1874,11 +1874,7 @@ impl SummonClient {
             .as_ref()
             .and_then(|r| r.settings.as_ref())
             .and_then(|s| s.max_turns)
-            .or_else(|| {
-                std::env::var("GOOSE_SUBAGENT_MAX_TURNS")
-                    .ok()
-                    .and_then(|v| v.parse().ok())
-            })
+            .or_else(|| get_var("SUBAGENT_MAX_TURNS").and_then(|v| v.parse().ok()))
             .or_else(|| {
                 Config::global()
                     .get_param::<usize>("GOOSE_SUBAGENT_MAX_TURNS")

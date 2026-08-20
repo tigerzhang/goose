@@ -116,7 +116,8 @@ impl From<keyring::Error> for ConfigError {
 /// checking for environment overrides. e.g. openai_api_key will check for an
 /// environment variable OPENAI_API_KEY
 ///
-/// For goose-specific configuration, consider prefixing with "goose_" to avoid conflicts.
+/// For OpenDuck-specific configuration, prefix with "openduck_" (environment `OPENDUCK_*`).
+/// `goose_` / `GOOSE_*` remains a compatible alias.
 pub struct Config {
     /// Ordered list of config files to load and merge.
     /// Later entries take precedence over earlier ones.
@@ -2103,6 +2104,40 @@ mod tests {
         std::env::remove_var("TEST_PRECEDENCE");
 
         Ok(())
+    }
+
+    #[test]
+    fn get_param_openduck_wins_over_goose_for_prefixed_key() {
+        let _guard = env_lock::lock_env([
+            ("OPENDUCK_PROVIDER", Some("openduck-provider")),
+            ("GOOSE_PROVIDER", Some("goose-provider")),
+        ]);
+        let config = new_test_config();
+        let value: String = config.get_param("GOOSE_PROVIDER").unwrap();
+        assert_eq!(value, "openduck-provider");
+    }
+
+    #[test]
+    fn get_param_falls_back_to_raw_unprefixed_key() {
+        let _guard = env_lock::lock_env([
+            ("OPENDUCK_OPENAI_API_KEY", None::<&str>),
+            ("GOOSE_OPENAI_API_KEY", None::<&str>),
+            ("OPENAI_API_KEY", Some("sk-raw")),
+        ]);
+        let config = new_test_config();
+        let value: String = config.get_param("OPENAI_API_KEY").unwrap();
+        assert_eq!(value, "sk-raw");
+    }
+
+    #[test]
+    fn get_secret_openduck_wins_over_goose() {
+        let _guard = env_lock::lock_env([
+            ("OPENDUCK_OPENAI_API_KEY", Some("sk-openduck")),
+            ("GOOSE_OPENAI_API_KEY", Some("sk-goose")),
+        ]);
+        let config = new_test_config();
+        let value: String = config.get_secret("OPENAI_API_KEY").unwrap();
+        assert_eq!(value, "sk-openduck");
     }
 
     #[test]

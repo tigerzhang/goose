@@ -24,7 +24,7 @@ fn lookup_suffix(key: &str) -> String {
     product_suffix(&upper).unwrap_or(&upper).to_string()
 }
 
-fn warn_legacy_once(legacy_key: &str, replacement: &str) {
+pub(crate) fn warn_legacy(legacy_key: &str, replacement: &str) {
     let warned = WARNED_LEGACY_KEYS.get_or_init(|| Mutex::new(HashSet::new()));
     let mut set = warned.lock().unwrap_or_else(|e| e.into_inner());
     if set.insert(legacy_key.to_string()) {
@@ -33,6 +33,9 @@ fn warn_legacy_once(legacy_key: &str, replacement: &str) {
 }
 
 /// Look up `OPENDUCK_<key>`, then fall back to `GOOSE_<key>` with a one-time warning.
+///
+/// Runtime `std::env::var("GOOSE_*")` call sites outside this module still need to
+/// be converted; prefer these helpers in follow-up PRs.
 ///
 /// `key` is the suffix without a product prefix, e.g. `"PROVIDER"` or `"SERVER__SECRET_KEY"`.
 /// Keys that already include `OPENDUCK_` / `GOOSE_` are stripped before lookup.
@@ -50,7 +53,7 @@ pub fn get_var_os(key: &str) -> Option<OsString> {
 
     let goose_key = format!("{GOOSE_PREFIX}{suffix}");
     if let Some(value) = env::var_os(&goose_key) {
-        warn_legacy_once(&goose_key, &openduck_key);
+        warn_legacy(&goose_key, &openduck_key);
         return Some(value);
     }
 

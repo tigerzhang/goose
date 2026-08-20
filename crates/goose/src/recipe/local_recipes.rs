@@ -12,8 +12,10 @@ use crate::recipe::RECIPE_FILE_EXTENSIONS;
 pub fn get_recipe_library_dir(is_global: bool) -> PathBuf {
     if is_global {
         Paths::config_dir().join("recipes")
+    } else if let Ok(cwd) = env::current_dir() {
+        Paths::find_project_dir(&cwd).join("recipes")
     } else {
-        Paths::find_project_dir(&env::current_dir().unwrap()).join("recipes")
+        PathBuf::from(".openduck").join("recipes")
     }
 }
 
@@ -29,8 +31,6 @@ fn local_recipe_dirs() -> Vec<PathBuf> {
         for name in Paths::project_dir_names() {
             local_dirs.push(cwd.join(name).join("recipes"));
         }
-    } else {
-        local_dirs.push(get_recipe_library_dir(false));
     }
 
     // Also scan .agents/recipes/ for consistency with the .agents/ convention
